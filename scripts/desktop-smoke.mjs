@@ -5,6 +5,8 @@ import {resolve,join} from 'node:path';
 import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 const root=resolve('fixtures/showcase'),m=JSON.parse(readFileSync(join(root,'evidence/manifest.json'),'utf8'));
+const deadline=Date.now()+60000;
+while(true){try{const r=await fetch('http://127.0.0.1:24918/json/version',{signal:AbortSignal.timeout(2000)});if(r.ok)break;}catch{}if(Date.now()>deadline)throw Error('TRACE WebView2 debug endpoint did not become ready within 60 seconds');await new Promise(r=>setTimeout(r,500));}
 const browser=await chromium.connectOverCDP('http://127.0.0.1:24918',{timeout:60000});
 const page=browser.contexts()[0].pages()[0];assert(page,'TRACE WebView2 page must exist');
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
