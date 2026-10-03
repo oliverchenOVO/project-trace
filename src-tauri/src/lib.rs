@@ -1,0 +1,9 @@
+pub mod ai;
+#[cfg(feature = "desktop")]
+pub mod desktop;
+pub mod git;
+pub mod investigation;
+pub mod model;
+pub mod repository;
+pub mod stack;
+pub mod store;

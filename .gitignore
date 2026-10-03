@@ -2,6 +2,10 @@ node_modules/
 dist/
 src-tauri/target/
 fixtures/regression/
+fixtures/showcase/
 *.local
 .env*
 qa-output/
+test-results/
+playwright-report/
+*.tsbuildinfo
