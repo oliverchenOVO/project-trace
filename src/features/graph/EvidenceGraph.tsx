@@ -7,7 +7,7 @@ const icons:Record<string,typeof FileCode2>={incident:TriangleAlert,stack_frame:
 type GraphNode=Node<{evidence:Evidence},'evidence'>;
 const EvidenceCard=memo(function EvidenceCard({data,selected}:NodeProps<GraphNode>) {
   const e=data.evidence;const Icon=icons[e.kind]??ScanLine;
-  return <div className={`evidence-card ${e.epistemicStatus} ${e.kind==='incident'?'crash':''} ${selected?'selected':''} ${e.validity!=='snapshot'?'invalid':''}`}>
+  return <div title={`${e.title}\n${e.summary}\n${statusLabels[e.epistemicStatus]}`} className={`evidence-card ${e.epistemicStatus} ${e.kind==='incident'?'crash':''} ${selected?'selected':''} ${e.validity!=='snapshot'?'invalid':''}`}>
     <Handle type="target" position={Position.Top}/><div className="node-kind"><Icon size={17}/>{kindLabels[e.kind]??e.kind}</div>
     <strong>{e.title}</strong><p>{e.kind==='commit'?e.summary.slice(0,12):e.summary}</p>
     <span className="node-status">{e.validity==='snapshot'?statusLabels[e.epistemicStatus]:e.validity.toUpperCase()}</span><Handle type="source" position={Position.Bottom}/>
@@ -37,7 +37,7 @@ export function EvidenceGraph({caseFile,selected,onSelect}:{caseFile:Investigati
     <div className="canvas-heading"><div><h1>Chain of evidence</h1><p>{caseFile?'Connect code, changes and runtime evidence to understand what happened.':'An investigation starts with a real source.'}</p></div>
       {caseFile?<div className="graph-actions"><button onClick={()=>setFocus(v=>!v)} aria-pressed={focus}>Focus path</button><button onClick={()=>setExpanded(v=>!v)} aria-pressed={expanded}>{expanded?'Primary path':'Expand frames'}</button></div>:null}
     </div>
-    {caseFile?<ReactFlow key={`${caseFile.id}-${expanded}-${focus}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.15}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} colorMode="dark"><Background color="#263b4b" gap={22} size={1}/><Controls showInteractive={false}/></ReactFlow>:
+    {caseFile?<div className="flow-stage"><ReactFlow key={`${caseFile.id}-${caseFile.nodes.length}-${expanded}-${focus}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.15}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} colorMode="dark"><Background color="#263b4b" gap={22} size={1}/><Controls showInteractive={false}/></ReactFlow></div>:
     <div className="empty-scene"><div className="scene-symbol"><ScanLine size={44} strokeWidth={1}/></div><h2>Every bug leaves a trace.</h2><p>Follow the stack. Inspect the code.<br/>Build a chain of evidence you can trust.</p><div className="empty-steps"><span>01 <b>Open a local Git repository</b></span><span>02 <b>Paste a Node.js stack trace</b></span><span>03 <b>Inspect source, blame and changes</b></span></div><small>No repository content is sent automatically.<br/>Evidence comes first. Hypotheses come later.</small></div>}
     <div className="graph-legend"><span className="legend observed">— Observed / derived</span><span className="legend correlated">┄ Correlation</span><span className="legend hypothesis">┈ AI hypothesis</span></div>
   </section>;

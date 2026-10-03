@@ -8,6 +8,7 @@ const output=readFileSync(join(root,'evidence/test-output.txt'),'utf8');
 const manifest=JSON.parse(readFileSync(join(root,'evidence/manifest.json'),'utf8'));
 test('real native golden path: source → blame → commit → patch → saved case',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await page.goto('/');await expect(page).toHaveTitle('TRACE — AI Bug Crime Scene');await expect(page.getByText('Every bug leaves a trace.')).toBeVisible();
   await page.screenshot({path:join(tmpdir(),'trace-welcome.png')});
   await page.getByRole('button',{name:'Enter repository path'}).click();await page.getByRole('textbox',{name:'Repository path'}).fill(root);await page.getByRole('button',{name:'Open repository',exact:true}).click();
@@ -26,6 +27,7 @@ test('real native golden path: source → blame → commit → patch → saved c
   await page.getByRole('button',{name:'AI context',exact:true}).click();await expect(page.getByRole('dialog',{name:'Review AI context'})).toBeVisible();await expect(page.locator('.context-preview')).toContainText('Actual commit patch');await page.getByRole('button',{name:'Close AI context'}).click();
   await page.reload();await page.locator('.saved-case').first().click();await expect(page.locator('.source-code')).toBeVisible({timeout:90000});await expect(page.getByRole('alert')).toHaveCount(0);expect(errors).toEqual([]);
   await page.setViewportSize({width:1024,height:768});await page.screenshot({path:join(tmpdir(),'trace-1024.png')});await expect(page.locator('.inspector')).toBeVisible();
+  await page.setViewportSize({width:768,height:900});await page.screenshot({path:join(tmpdir(),'trace-768.png')});await expect(page.locator('.case-rail')).toBeVisible();
 });
 test('invalid repository returns an actionable error without evidence',async({page})=>{
   await page.goto('/');await page.getByRole('button',{name:'Enter repository path'}).click();await page.getByRole('textbox',{name:'Repository path'}).fill(resolve('src'));await page.getByRole('button',{name:'Open repository',exact:true}).click();

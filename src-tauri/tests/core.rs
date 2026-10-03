@@ -269,6 +269,7 @@ fn dirty_worktree_is_inspectable() {
         .iter()
         .any(|n| n.kind == "blame_result" && n.data["uncommitted"] == true));
     assert!(!c.nodes.iter().any(|n| n.kind == "commit"));
+    assert!(c.nodes.iter().any(|n| n.kind == "working_diff"));
 }
 #[test]
 fn empty_repository_source_without_history() {

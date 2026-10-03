@@ -1,0 +1,13 @@
+import {spawnSync} from 'node:child_process';
+import {readFileSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {tmpdir} from 'node:os';
+import assert from 'node:assert/strict';
+const root=resolve('fixtures/showcase');const manifest=JSON.parse(readFileSync(join(root,'evidence/manifest.json'),'utf8'));
+const request={command:'analyze',args:{path:root,stack:readFileSync(join(root,'evidence/stack.txt'),'utf8'),logs:'',tests:readFileSync(join(root,'evidence/test-output.txt'),'utf8')}};
+const r=spawnSync(resolve('src-tauri/target/debug/trace-probe.exe'),[],{input:JSON.stringify(request),encoding:'utf8',timeout:180000,windowsHide:true,env:{...process.env,TRACE_QA_DB:join(tmpdir(),'trace-phase-gate.sqlite')}});
+if(r.error)throw r.error;if(r.status!==0)throw Error(r.stderr);const response=JSON.parse(r.stdout);if(response.error)throw Error(response.error);const c=response.ok;
+assert.equal(c.frames[0].resolved,true);assert.equal(c.frames[0].line,3);assert(c.nodes.some(n=>n.kind==='source_line'&&n.data.lines[2].includes('user!.id.trim()')));
+assert(c.nodes.some(n=>n.kind==='blame_result'&&n.data.sha===manifest.regression));assert(c.nodes.some(n=>n.kind==='diff_hunk'&&n.data.patch.includes('-  if (!user) return null;')));
+assert(c.nodes.some(n=>n.kind==='test_result'&&n.data.independentlyExecuted===false));assert(c.edges.every(e=>e.relation!=='causes'));assert(c.nodes.every(n=>n.provenance.rawExcerpt));
+console.log(JSON.stringify({phase0:'passed native deterministic gate',caseId:c.id,nodes:c.nodes.length,edges:c.edges.length,regression:manifest.regression,head:c.repository.head,warnings:c.warnings},null,2));

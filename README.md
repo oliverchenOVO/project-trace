@@ -39,4 +39,6 @@ Local model quality varies; cited evidence and confidence labels cannot substitu
 
 Cases live in the application's local data folder as `cases.sqlite`, outside investigated repositories. Saved cases retain original excerpts. Reopen or choose **Check snapshot** to detect changed HEAD, worktree status or source hashes.
 
+The end-to-end harness serves the production bundle on `127.0.0.1:24917` with a test-only IPC transport adapter. Build the frontend before running it. Optional real AI E2E: set `TRACE_AI_MODEL` to an installed Ollama model. Browser tests neither invent Git output nor simulate model responses.
+
 See [architecture](docs/ARCHITECTURE.md), [evidence model](docs/EVIDENCE_MODEL.md), [security](docs/SECURITY.md), and the [exact showcase workflow](docs/SHOWCASE.md).

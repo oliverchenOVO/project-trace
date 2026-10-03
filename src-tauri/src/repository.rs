@@ -42,24 +42,7 @@ pub fn display_path(p: &Path) -> String {
         .to_string()
 }
 pub fn metadata(root: &Path, token: &str) -> Result<Repository> {
-    let head = match git::git(root, &["rev-parse", "--verify", "HEAD"]) {
-        Ok(h) => Some(h.trim().to_string()),
-        Err(e) => {
-            if e.contains("Needed a single revision") || e.contains("unknown revision") {
-                None
-            } else {
-                return Err(e);
-            }
-        }
-    };
-    let branch = git::git(root, &["rev-parse", "--abbrev-ref", "HEAD"])
-        .unwrap_or_else(|_| "unborn".into())
-        .trim()
-        .to_string();
-    let status = git::git(
-        root,
-        &["status", "--porcelain=v1", "-z", "--untracked-files=normal"],
-    )?;
+    let (head, branch, status, dirty) = snapshot(root)?;
     let recent_commits = if head.is_some() {
         git::commits(root, None)?
     } else {
@@ -70,10 +53,47 @@ pub fn metadata(root: &Path, token: &str) -> Result<Repository> {
         root: display_path(root),
         head,
         branch,
-        dirty: !status.is_empty(),
+        dirty,
         status,
         recent_commits,
     })
+}
+pub fn parse_status(raw: &str) -> Result<(Option<String>, String, bool)> {
+    let records: Vec<_> = raw.split('\0').collect();
+    let oid = records
+        .iter()
+        .find_map(|r| r.strip_prefix("# branch.oid "))
+        .ok_or("Git status missing branch OID")?;
+    let head = if oid == "(initial)" {
+        None
+    } else if git::valid_sha(oid) {
+        Some(oid.into())
+    } else {
+        return Err("Invalid HEAD in Git status".into());
+    };
+    let branch = records
+        .iter()
+        .find_map(|r| r.strip_prefix("# branch.head "))
+        .ok_or("Git status missing branch name")?
+        .to_string();
+    let dirty = records
+        .iter()
+        .any(|r| !r.is_empty() && !r.starts_with("# "));
+    Ok((head, branch, dirty))
+}
+pub fn snapshot(root: &Path) -> Result<(Option<String>, String, String, bool)> {
+    let raw = git::git(
+        root,
+        &[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "-z",
+            "--untracked-files=normal",
+        ],
+    )?;
+    let (head, branch, dirty) = parse_status(&raw)?;
+    Ok((head, branch, raw, dirty))
 }
 pub fn excluded(path: &str) -> bool {
     let path = path.replace('\\', "/").to_ascii_lowercase();

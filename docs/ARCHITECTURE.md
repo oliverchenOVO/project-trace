@@ -8,7 +8,7 @@ Tauri 2 hosts React 19 / TypeScript / Vite with React Flow. Native asynchronous 
 
 The stack pipeline is input → NodeParser → canonical file resolution → UTF-8 excerpt → targeted Git history / single-line blame / commit metadata / patch. It supports Windows drive paths, spaces and percent-encoded file URLs. Source maps and AST symbol mapping are not implemented. Function names come from the stack and are not represented as statically verified symbols.
 
-Analysis includes at most eight frames, twelve recent commits per history query and targeted patches only. Unresolvable frames remain visible with notices. No entire-repository indexing occurs. The graph defaults to a primary path; expand frames and focus path provide progressive inspection.
+Analysis resolves at most eight frames, twelve recent commits per history query and targeted patches only. Git forensics focuses on the first resolved source; other frames retain source evidence without repeating history queries. Unresolvable frames remain visible with notices. All parsed frames remain available in the stack inspector. HEAD, branch and dirty state come from one porcelain-v2 status snapshot. No entire-repository indexing occurs. The graph defaults to a primary path; expand frames and focus path provide progressive inspection.
 
 ## Epistemic boundary
 
@@ -20,4 +20,4 @@ SQLite stores the full original snapshot, repository identity and HEAD, worktree
 
 ## Test adapter
 
-`trace-probe` is a JSON stdin/stdout development adapter to the same core. Vite mounts its bridge only when `TRACE_QA=1` and requires the exact loopback origin. There is no such listener in the packaged desktop app. Browser tests use actual Git output, not fabricated fixtures or mocked repository calls.
+`trace-probe` is a JSON stdin/stdout development adapter to the same core. The production-bundle QA server injects only a test transport for Tauri IPC and requires the exact loopback origin. Vite additionally mounts an optional development bridge only when `TRACE_QA=1`. There is no such listener or injected transport in the packaged desktop app. Browser tests use actual Git output, not fabricated evidence. A separate WebView2 smoke script exercises the real desktop IPC.

@@ -71,6 +71,7 @@ pub fn investigate(
         json!({}),
     );
     let mut commits: HashMap<String, String> = HashMap::new();
+    let mut forensic_source_collected = false;
     for f in frames.iter_mut().take(8) {
         let fp = Provenance::input("stack_input", &f.raw, &case_id);
         let frame = case.node(
@@ -100,6 +101,9 @@ pub fn investigate(
             }
         };
         f.resolved = true;
+        if let Some(n) = case.nodes.iter_mut().find(|n| n.id == frame) {
+            n.data = json!(f);
+        }
         case.source_hashes
             .insert(src.path.clone(), src.hash.clone());
         let mut sp = Provenance::input("source", &src.lines.join("\n"), &case_id);
@@ -117,6 +121,10 @@ pub fn investigate(
             json!(src),
         );
         case.edge(&frame, &source, "occurred_at", Status::Derived, sp.clone());
+        if forensic_source_collected {
+            continue;
+        }
+        forensic_source_collected = true;
         if case.repository.head.is_none() {
             case.warnings.push(
                 "Repository has no commits; source is inspectable but history is unavailable"
@@ -339,8 +347,8 @@ pub fn investigate(
         );
         case.edge(&incident, &n, "contains", Status::Observed, p);
     }
-    let after = repository::metadata(&root, token)?;
-    if after.head != case.repository.head || after.status != case.repository.status {
+    let (after_head, _, after_status, _) = repository::snapshot(&root)?;
+    if after_head != case.repository.head || after_status != case.repository.status {
         return Err(
             "Repository changed during analysis. Retry to capture a consistent snapshot.".into(),
         );
@@ -378,6 +386,9 @@ pub fn check_stale(case: &mut Investigation, sessions: &Sessions) -> Result<()> 
     }
     case.stale = repo_changed || changed.values().any(|v| *v != "snapshot");
     for n in &mut case.nodes {
+        if n.validity == "unresolved" {
+            continue;
+        }
         n.validity = if let Some(f) = &n.provenance.file_path {
             changed.get(f).copied().unwrap_or("snapshot").into()
         } else {
