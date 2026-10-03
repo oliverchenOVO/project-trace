@@ -9,7 +9,7 @@ Every node has an ID, kind, epistemic status, title, summary, creator, evidence 
 | correlated | Explicit heuristic connecting candidates | Amber dashed border and connection, CORRELATION |
 | hypothesis | Model interpretation requiring verification | Violet dotted border and connection, AI HYPOTHESIS |
 
-Provenance includes source type, file and line region where applicable, commit SHA where applicable, command argument array, raw excerpt, artifact ID, SHA-256 and capture time. Source hashes cover the full file; the excerpt itself is a bounded line region. User inputs have case artifact IDs. Node and edge inspectors make these references inspectable without an external editor.
+Provenance includes source type, file and line region where applicable, commit SHA where applicable, command argument array, raw excerpt, artifact ID, SHA-256 and capture time. Source hashes cover the full file; the excerpt itself is a bounded line region. User inputs have case artifact IDs. The node inspector and chain navigation expose original references without an external editor. Edge provenance is retained in the case data; there is no separate edge inspector panel.
 
 `snapshot` means captured evidence retained in the case. `stale` means source bytes changed, and `invalid` means unavailable/unreadable source. An overall stale flag also detects HEAD or worktree-status differences even when the relevant source bytes are unchanged. Snapshot integrity does not prove that current source matches the deployed revision that originally produced a crash.
 

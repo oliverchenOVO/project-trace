@@ -25,6 +25,7 @@ npm test
 npm run test:native
 cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --bin trace-probe
 npx playwright install chromium
+npm run build
 npm run test:e2e
 npm run tauri -- build
 ```
