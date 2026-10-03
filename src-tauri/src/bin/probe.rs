@@ -34,6 +34,10 @@ fn process(r: Value) -> Result<Value> {
             let mut c = store::load(&db, string("id"))?;
             investigation::check_stale(&mut c, &sessions)?;
             ai::generate(&mut c, string("model"))?;
+            investigation::check_stale(&mut c, &sessions)?;
+            if c.stale {
+                return Err("Repository changed while AI was running".into());
+            }
             store::save(&db, &c)?;
             Ok(json!(c))
         }

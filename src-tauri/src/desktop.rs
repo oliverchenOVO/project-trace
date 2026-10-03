@@ -87,6 +87,8 @@ async fn generate_hypothesis(
             .ok_or("Case is not open")?;
         investigation::check_stale(&mut c, &s.sessions)?;
         ai::generate(&mut c, &model)?;
+        investigation::check_stale(&mut c,&s.sessions)?;
+        if c.stale {return Err("Repository changed while AI was running. Refresh the case before generating a hypothesis.".into());}
         store::save(&s.db, &c)?;
         s.cases
             .lock()

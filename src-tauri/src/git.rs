@@ -193,7 +193,20 @@ pub fn provenance(
         line_start: line,
         line_end: line,
         commit_sha: sha.map(str::to_string),
-        command: std::iter::once("git".into()).chain(args).collect(),
+        command: [
+            "git",
+            "--no-optional-locks",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "core.pager=cat",
+            "-c",
+            "log.showSignature=false",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .chain(args)
+        .collect(),
         raw_excerpt: raw.into(),
         artifact_id: None,
         source_hash: Some(hash(raw.as_bytes())),

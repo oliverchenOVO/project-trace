@@ -32,7 +32,14 @@ pub fn investigate(
     }
     let title = stack
         .lines()
-        .find(|l| !l.trim().is_empty())
+        .find(|l| {
+            l.trim()
+                .split(':')
+                .next()
+                .map(|s| s.ends_with("Error") || s.ends_with("Exception"))
+                .unwrap_or(false)
+        })
+        .or_else(|| stack.lines().find(|l| !l.trim().is_empty()))
         .unwrap_or("Incident")
         .trim()
         .chars()
@@ -117,7 +124,28 @@ pub fn investigate(
             );
             continue;
         }
-        let history = git::commits(&root, Some(&src.path))?;
+        let dirty_args = vec![
+            "diff".into(),
+            "HEAD".into(),
+            "--no-ext-diff".into(),
+            "--no-textconv".into(),
+            "--".into(),
+            src.path.clone(),
+        ];
+        let dirty = git::run_git(&root, &dirty_args)?;
+        if !dirty.is_empty() {
+            let p = git::provenance(dirty_args, &dirty, Some(&src.path), None, None);
+            let n = case.node(
+                "working_diff",
+                Status::Derived,
+                "Working tree changes",
+                "Source differs from HEAD; inspect alongside committed history",
+                "git",
+                p.clone(),
+                json!({"patch":dirty}),
+            );
+            case.edge(&source, &n, "modified_by", Status::Derived, p);
+        }
         let args = vec![
             "log".into(),
             "-12".into(),
@@ -125,13 +153,9 @@ pub fn investigate(
             "--".into(),
             src.path.clone(),
         ];
-        let hp = git::provenance(
-            args,
-            &serde_json::to_string(&history).unwrap_or_default(),
-            Some(&src.path),
-            None,
-            None,
-        );
+        let history_raw = git::run_git(&root, &args)?;
+        let history = git::parse_commits(&history_raw);
+        let hp = git::provenance(args, &history_raw, Some(&src.path), None, None);
         let hnode = case.node(
             "file_history",
             Status::Derived,
@@ -145,6 +169,7 @@ pub fn investigate(
         let range = format!("{},{}", f.line, f.line);
         let args = vec![
             "blame".into(),
+            "--no-textconv".into(),
             "--line-porcelain".into(),
             "-L".into(),
             range,
@@ -282,28 +307,6 @@ pub fn investigate(
             dp.clone(),
         );
         case.edge(&source, &signal, "correlates_with", Status::Correlated, dp);
-        let args = vec![
-            "diff".into(),
-            "HEAD".into(),
-            "--no-ext-diff".into(),
-            "--no-textconv".into(),
-            "--".into(),
-            src.path.clone(),
-        ];
-        let dirty = git::run_git(&root, &args)?;
-        if !dirty.is_empty() {
-            let p = git::provenance(args, &dirty, Some(&src.path), None, None);
-            let n = case.node(
-                "working_diff",
-                Status::Derived,
-                "Working tree changes",
-                "Source differs from HEAD; inspect this patch alongside committed history",
-                "git",
-                p.clone(),
-                json!({"patch":dirty}),
-            );
-            case.edge(&source, &n, "modified_by", Status::Derived, p);
-        }
     }
     if frames.len() > 8 {
         case.warnings.push("Graph includes the first eight frames; all parsed frames remain in the stack inspector".into());

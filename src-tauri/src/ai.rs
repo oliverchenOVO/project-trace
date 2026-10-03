@@ -54,12 +54,19 @@ pub fn context(case: &Investigation) -> serde_json::Value {
         }
         let raw = redact(&n.provenance.raw_excerpt);
         let excerpt: String = raw.chars().take(2200.min(budget / 4)).collect();
-        budget = budget.saturating_sub(excerpt.len() + n.title.len() + n.summary.len() + 250);
+        let title: String = redact(&n.title).chars().take(200).collect();
+        let summary: String = redact(&n.summary).chars().take(400).collect();
+        let item = json!({"id":n.id,"kind":n.kind,"status":n.epistemic_status,"title":title,"summary":summary,"excerpt":excerpt,"excerptTruncated":excerpt.len()<raw.len()});
+        let item_bytes = serde_json::to_vec(&item).unwrap_or_default().len() + 1;
+        if item_bytes > budget {
+            break;
+        }
+        budget -= item_bytes;
         lines += excerpt.lines().count();
         if let Some(f) = &n.provenance.file_path {
             files.insert(f.clone());
         }
-        items.push(json!({"id":n.id,"kind":n.kind,"status":n.epistemic_status,"title":redact(&n.title),"summary":redact(&n.summary),"excerpt":excerpt,"excerptTruncated":excerpt.len()<raw.len()}));
+        items.push(item);
     }
     let bytes = serde_json::to_vec(&items).unwrap_or_default().len();
     json!({"evidence":items,"fileCount":files.len(),"lineCount":lines,"bytes":bytes,"excludedCount":excluded_count,"policy":"Relevant evidence only. Sensitive/generated sources excluded. Common secret patterns redacted. Preview before sending."})
@@ -95,6 +102,11 @@ pub fn validate(raw: &str, case: &Investigation) -> Result<Hypothesis> {
     }
     if h.supported_by.iter().any(|i| h.contradicted_by.contains(i)) {
         return Err("AI cited the same evidence as both support and contradiction".into());
+    }
+    if h.supported_by.iter().collect::<HashSet<_>>().len() != h.supported_by.len()
+        || h.contradicted_by.iter().collect::<HashSet<_>>().len() != h.contradicted_by.len()
+    {
+        return Err("Duplicate AI evidence citations rejected".into());
     }
     Ok(h)
 }
@@ -133,7 +145,14 @@ pub fn generate(case: &mut Investigation, model: &str) -> Result<()> {
     if model.is_empty() || model.len() > 100 {
         return Err("Enter an installed Ollama model name".into());
     }
-    let schema = json!({"type":"object","additionalProperties":false,"required":["hypothesis","supportedBy","contradictedBy","uncertainties","verificationSteps"],"properties":{"hypothesis":{"type":"string"},"supportedBy":{"type":"array","items":{"type":"string"}},"contradictedBy":{"type":"array","items":{"type":"string"}},"uncertainties":{"type":"array","items":{"type":"string"}},"verificationSteps":{"type":"array","items":{"type":"string"}}}});
+    let package = context(case);
+    let ids: Vec<_> = package["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].clone())
+        .collect();
+    let schema = json!({"type":"object","additionalProperties":false,"required":["hypothesis","supportedBy","contradictedBy","uncertainties","verificationSteps"],"properties":{"hypothesis":{"type":"string"},"supportedBy":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":ids}},"contradictedBy":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":ids}},"uncertainties":{"type":"array","minItems":1,"items":{"type":"string"}},"verificationSteps":{"type":"array","minItems":1,"items":{"type":"string"}}}});
     let client = reqwest::blocking::Client::builder()
         .no_proxy()
         .timeout(std::time::Duration::from_secs(120))
