@@ -1,12 +1,32 @@
 use crate::model::*;
 use std::{
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
 
 pub const OUTPUT_LIMIT: usize = 2_000_000;
+pub fn installed_git(root: &Path, path: Option<&std::ffi::OsStr>) -> Result<PathBuf> {
+    let executable = if cfg!(windows) { "git.exe" } else { "git" };
+    if let Some(path) = path {
+        for entry in std::env::split_paths(path) {
+            if !entry.is_absolute() {
+                continue;
+            }
+            let candidate = entry.join(executable);
+            if !candidate.is_file() {
+                continue;
+            }
+            if let Ok(pinned) = candidate.canonicalize() {
+                if !pinned.starts_with(root) {
+                    return Ok(pinned);
+                }
+            }
+        }
+    }
+    Err("Git executable missing from trusted absolute PATH entries. Install Git for Windows and restart TRACE. Repository-local executables are never used.".into())
+}
 pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
     let allowed = [
         "rev-parse",
@@ -24,7 +44,8 @@ pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
     {
         return Err("Git operation is not on the read-only allowlist".into());
     }
-    let mut command = Command::new("git");
+    let git_program = installed_git(root, std::env::var_os("PATH").as_deref())?;
+    let mut command = Command::new(git_program);
     command
         .current_dir(root)
         .args([

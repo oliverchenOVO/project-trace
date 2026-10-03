@@ -2,6 +2,8 @@
 
 Normal investigations are read-only. Git operations are fixed internal calls to rev-parse, status, log, show, diff and blame. The service also permits ls-files for future targeted path discovery. No frontend command accepts arbitrary executable names, shell strings or Git argument arrays. No repository script, package hook or content instruction can trigger execution.
 
+The installed Git executable is resolved from absolute PATH entries and pinned to a canonical executable path. Relative/current-directory PATH entries and executables inside the selected repository are rejected. A repository-local `git.exe` cannot replace the installed CLI through Windows executable search order.
+
 Git is spawned with executable + argument arrays, no shell, no optional locks, prompts disabled and hidden child windows on Windows. Inherited GIT_* variables are stripped. fsmonitor is disabled, signature verification is disabled, pager is fixed, and patches disable external diff and textconv; blame also disables textconv. Recorded command arrays include the safety flags. Output is limited to 2 MB per stream and each Git operation has a 20-second deadline. Oversized or timed-out operations fail explicitly.
 
 Repository roots are canonicalized and registered as session tokens. Sources are canonicalized, checked against the root, and must be regular files. Both slash styles of `..` traversal are rejected; file URLs are decoded before validation. Symlinks resolving outside the root are rejected. Source reads are capped at 512 KB and require UTF-8 nonbinary content. SHA-256 checks after analysis detect source changes; HEAD and worktree status are checked before and after collection.

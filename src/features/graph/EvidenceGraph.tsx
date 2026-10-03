@@ -19,8 +19,8 @@ const positions:Record<string,[number,number]>={incident:[270,0],stack_frame:[27
 function ViewportFitter() {
   const initialized=useNodesInitialized();const {getNodes,getInternalNode,setViewport}=useReactFlow();
   const width=useStore(s=>s.width),height=useStore(s=>s.height);
-  // In controlled mode, fitView queues a node update. Fit measured bounds directly
-  // so resizing and the explicit control work without mutating evidence nodes.
+  // Presentation measurements belong to React Flow; domain evidence is immutable.
+  // Fit measured bounds directly without changing any evidence coordinates.
   const refit=useCallback(()=>{if(!width||!height)return;const measured=getNodes().map(n=>getInternalNode(n.id)).filter(n=>n!==undefined);if(!measured.length)return;void setViewport(getViewportForBounds(getNodesBounds(measured),width,height,0.2,1.8,0.12),{duration:0});},[getNodes,getInternalNode,setViewport,width,height]);
   useEffect(()=>{if(initialized)refit();},[initialized,refit]);
   return <Controls showInteractive={false} showFitView={false}><ControlButton onClick={refit} title="Fit evidence graph" aria-label="Fit evidence graph"><Maximize2 size={14}/></ControlButton></Controls>;
@@ -46,7 +46,7 @@ export function EvidenceGraph({caseFile,selected,onSelect}:{caseFile:Investigati
     <div className="canvas-heading"><div><h1>Chain of evidence</h1><p>{caseFile?'Connect code, changes and runtime evidence to understand what happened.':'An investigation starts with a real source.'}</p></div>
       {caseFile?<div className="graph-actions"><button onClick={()=>setFocus(v=>!v)} aria-pressed={focus}>Focus path</button><button onClick={()=>setExpanded(v=>!v)} aria-pressed={expanded}>{expanded?'Primary path':'Expand frames'}</button></div>:null}
     </div>
-    {caseFile?<div className="flow-stage"><ReactFlow key={`${caseFile.id}-${caseFile.nodes.length}-${expanded}-${focus}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.12}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} colorMode="dark"><ViewportFitter/><Background color="#263b4b" gap={22} size={1}/></ReactFlow></div>:
+    {caseFile?<div className="flow-stage"><ReactFlow key={`${caseFile.id}-${caseFile.nodes.length}-${caseFile.nodes.map(n=>n.validity).join('-')}-${expanded}-${focus}-${focus?selected:''}`} defaultNodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.12}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} deleteKeyCode={null} colorMode="dark"><ViewportFitter/><Background color="#263b4b" gap={22} size={1}/></ReactFlow></div>:
     <div className="empty-scene"><div className="scene-symbol"><ScanLine size={44} strokeWidth={1}/></div><h2>Every bug leaves a trace.</h2><p>Follow the stack. Inspect the code.<br/>Build a chain of evidence you can trust.</p><div className="empty-steps"><span>01 <b>Open a local Git repository</b></span><span>02 <b>Paste a Node.js stack trace</b></span><span>03 <b>Inspect source, blame and changes</b></span></div><small>No repository content is sent automatically.<br/>Evidence comes first. Hypotheses come later.</small></div>}
     <div className="graph-legend"><span className="legend observed">— Observed / derived</span><span className="legend correlated">┄ Correlation</span><span className="legend hypothesis">┈ AI hypothesis</span></div>
   </section>;
