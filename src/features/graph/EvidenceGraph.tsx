@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import { ReactFlow, Background, Controls, Handle, Position, type NodeProps, type Node, type Edge, MarkerType } from '@xyflow/react';
+import { memo, useMemo, useState, useEffect, useRef, type RefObject } from 'react';
+import { ReactFlow, Background, Controls, Handle, Position, type NodeProps, type Node, type Edge, MarkerType, useReactFlow, useNodesInitialized } from '@xyflow/react';
 import { FileCode2, GitCommitHorizontal, TriangleAlert, ScanLine, Sparkles, FlaskConical, GitBranch, FileDiff, ScrollText } from 'lucide-react';
 import type { Evidence, Investigation } from '../../domain/evidence';
 import { kindLabels, statusLabels } from '../../domain/evidence';
@@ -15,9 +15,15 @@ const EvidenceCard=memo(function EvidenceCard({data,selected}:NodeProps<GraphNod
 });
 const nodeTypes={evidence:EvidenceCard};
 const colors={observed:'#4edcf0',derived:'#4edcf0',correlated:'#e6b55c',hypothesis:'#b78aff'};
-const positions:Record<string,[number,number]>={incident:[270,0],stack_frame:[270,160],source_line:[270,320],file_history:[560,320],blame_result:[0,480],commit:[0,650],diff_hunk:[290,650],candidate_signal:[570,650],test_result:[570,120],log_event:[0,150],hypothesis:[290,850],working_diff:[570,490]};
+const positions:Record<string,[number,number]>={incident:[270,0],stack_frame:[270,155],source_line:[270,310],file_history:[560,310],blame_result:[0,310],commit:[0,465],diff_hunk:[290,465],candidate_signal:[570,465],test_result:[570,140],log_event:[0,150],hypothesis:[290,640],working_diff:[0,640]};
+function ViewportFitter({container}:{container:RefObject<HTMLDivElement|null>}) {
+  const initialized=useNodesInitialized();const {fitView}=useReactFlow();
+  useEffect(()=>{if(!initialized||!container.current)return;const observer=new ResizeObserver(()=>{void fitView({padding:0.12,duration:0});});observer.observe(container.current);return()=>observer.disconnect();},[initialized,fitView,container]);
+  return null;
+}
 export function EvidenceGraph({caseFile,selected,onSelect}:{caseFile:Investigation|null;selected:string|null;onSelect:(id:string)=>void}) {
   const [expanded,setExpanded]=useState(false);const [focus,setFocus]=useState(false);
+  const stage=useRef<HTMLDivElement>(null);
   const {nodes,edges}=useMemo(()=> {
     if(!caseFile)return {nodes:[],edges:[]};
     const counts:Record<string,number>={};
@@ -37,7 +43,7 @@ export function EvidenceGraph({caseFile,selected,onSelect}:{caseFile:Investigati
     <div className="canvas-heading"><div><h1>Chain of evidence</h1><p>{caseFile?'Connect code, changes and runtime evidence to understand what happened.':'An investigation starts with a real source.'}</p></div>
       {caseFile?<div className="graph-actions"><button onClick={()=>setFocus(v=>!v)} aria-pressed={focus}>Focus path</button><button onClick={()=>setExpanded(v=>!v)} aria-pressed={expanded}>{expanded?'Primary path':'Expand frames'}</button></div>:null}
     </div>
-    {caseFile?<div className="flow-stage"><ReactFlow key={`${caseFile.id}-${caseFile.nodes.length}-${expanded}-${focus}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.15}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} colorMode="dark"><Background color="#263b4b" gap={22} size={1}/><Controls showInteractive={false}/></ReactFlow></div>:
+    {caseFile?<div ref={stage} className="flow-stage"><ReactFlow key={`${caseFile.id}-${caseFile.nodes.length}-${expanded}-${focus}`} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>onSelect(n.id)} fitView fitViewOptions={{padding:0.12}} minZoom={0.2} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} colorMode="dark"><ViewportFitter container={stage}/><Background color="#263b4b" gap={22} size={1}/><Controls showInteractive={false}/></ReactFlow></div>:
     <div className="empty-scene"><div className="scene-symbol"><ScanLine size={44} strokeWidth={1}/></div><h2>Every bug leaves a trace.</h2><p>Follow the stack. Inspect the code.<br/>Build a chain of evidence you can trust.</p><div className="empty-steps"><span>01 <b>Open a local Git repository</b></span><span>02 <b>Paste a Node.js stack trace</b></span><span>03 <b>Inspect source, blame and changes</b></span></div><small>No repository content is sent automatically.<br/>Evidence comes first. Hypotheses come later.</small></div>}
     <div className="graph-legend"><span className="legend observed">— Observed / derived</span><span className="legend correlated">┄ Correlation</span><span className="legend hypothesis">┈ AI hypothesis</span></div>
   </section>;

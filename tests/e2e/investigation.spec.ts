@@ -26,7 +26,9 @@ test('real native golden path: source → blame → commit → patch → saved c
   await page.locator('.react-flow__node').filter({hasText:'Attached test output'}).click();await expect(page.locator('.inspector-body')).toContainText('TRACE did not execute this command');
   await page.getByRole('button',{name:'AI context',exact:true}).click();await expect(page.getByRole('dialog',{name:'Review AI context'})).toBeVisible();await expect(page.locator('.context-preview')).toContainText('Actual commit patch');await page.getByRole('button',{name:'Close AI context'}).click();
   await page.reload();await page.locator('.saved-case').first().click();await expect(page.locator('.source-code')).toBeVisible({timeout:90000});await expect(page.getByRole('alert')).toHaveCount(0);expect(errors).toEqual([]);
-  await page.setViewportSize({width:1024,height:768});await page.screenshot({path:join(tmpdir(),'trace-1024.png')});await expect(page.locator('.inspector')).toBeVisible();
+  await page.setViewportSize({width:1024,height:768});
+  await expect.poll(()=>page.evaluate(()=>{const pane=document.querySelector('.flow-stage')!.getBoundingClientRect();return [...document.querySelectorAll('.react-flow__node')].every(n=>{const r=n.getBoundingClientRect();return r.left>=pane.left-2&&r.right<=pane.right+2&&r.top>=pane.top-2&&r.bottom<=pane.bottom+2;});})).toBe(true);
+  await page.screenshot({path:join(tmpdir(),'trace-1024.png')});await expect(page.locator('.inspector')).toBeVisible();
   await page.setViewportSize({width:768,height:900});await page.screenshot({path:join(tmpdir(),'trace-768.png')});await expect(page.locator('.case-rail')).toBeVisible();
 });
 test('invalid repository returns an actionable error without evidence',async({page})=>{
