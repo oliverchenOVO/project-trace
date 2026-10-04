@@ -14,7 +14,7 @@ async function call<T>(command:string,args:Record<string,unknown>={}):Promise<T>
 }
 export const backend={
   desktop:isTauri(),
-  async chooseFolder():Promise<string|null> {if(!isTauri())return null;const result=await open({directory:true,multiple:false,title:'Select a local Git repository'});return typeof result==='string'?result:null;},
+  async chooseFolder(title='Select a local Git repository'):Promise<string|null> {if(!isTauri())return null;const result=await open({directory:true,multiple:false,title});return typeof result==='string'?result:null;},
   async openRepository(path:string) {const repo=await call<Repository>('open_repository',{path});qaRoot=repo.root;return repo;},
   analyze:(token:string,stack:string,logs:string,tests:string)=>call<Investigation>('analyze',{token,stack,logs,tests}),
   listCases:()=>call<SavedCase[]>('list_cases'),

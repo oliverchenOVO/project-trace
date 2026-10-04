@@ -1,6 +1,6 @@
 {
   "$schema":"https://schema.tauri.app/config/2",
-  "productName":"TRACE", "version":"0.2.0", "identifier":"com.projecttrace.desktop",
+  "productName":"TRACE", "version":"0.2.1", "identifier":"com.projecttrace.desktop",
   "build":{"beforeDevCommand":"npm run dev","devUrl":"http://127.0.0.1:1420","beforeBuildCommand":"npm run build","frontendDist":"../dist"},
   "app":{"windows":[{"label":"main","title":"TRACE — AI Bug Crime Scene","width":1536,"height":1000,"minWidth":1024,"minHeight":700}],"security":{"csp":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost; font-src 'self' data:"}},
   "bundle":{"active":true,"targets":["nsis"],"icon":["icons/32x32.png","icons/128x128.png","icons/128x128@2x.png","icons/icon.ico"],"shortDescription":"Local software forensics","category":"DeveloperTool","windows":{"nsis":{"displayLanguageSelector":false}}}

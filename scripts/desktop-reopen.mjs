@@ -9,6 +9,7 @@ const browser=await chromium.connectOverCDP('http://127.0.0.1:24918');
 const page=browser.contexts()[0].pages()[0];
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.waitForSelector('.app-shell',{timeout:60000});
+const language=page.getByRole('combobox',{name:'Interface language / 介面語言'});if(await language.count())await language.selectOption('en');
 assert.equal(await page.evaluate(()=>globalThis.isTauri),true);
 await page.locator('.saved-case').first().click();
 await page.locator('.source-code').waitFor({timeout:90000});

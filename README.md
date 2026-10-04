@@ -6,6 +6,10 @@ A local-first Windows desktop lab for investigating JavaScript / TypeScript / No
 
 Observed input, deterministic derivation, correlation and AI hypotheses have separate labels and graph treatments. Blame establishes last modification, never causation. Pasted test output is explicitly user-supplied; it does not claim TRACE ran a test.
 
+## Interface language (0.2.1)
+
+Use the header's **繁體中文 / English** selector to change language immediately. The choice is saved locally and restored on restart; the initial default follows the browser/system language, with Traditional Chinese for Chinese locales. Headers, dialogs, navigation, evidence/status labels and Verification Lab use the chosen language. Raw source, Git patches/commit messages, supplied output and model responses remain unchanged. Technical identifiers and original diagnostic details may remain in their original language. If local preference storage is unavailable, switching still works for the current session.
+
 ## Development
 
 Prerequisites: Node 24+, installed Git, stable Rust MSVC, Visual Studio C++ Build Tools and Windows WebView2. No WSL required. Ensure Cargo is on PATH (`$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH` in PowerShell if necessary).

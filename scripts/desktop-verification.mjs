@@ -10,7 +10,8 @@ const mode=process.argv[2]||'run',proofPath=join(tmpdir(),'trace-native-verifica
 const deadline=Date.now()+90000;
 while(true){try{const r=await fetch('http://127.0.0.1:24918/json/version',{signal:AbortSignal.timeout(2000)});if(r.ok)break;}catch{}if(Date.now()>deadline)throw Error('Native WebView2 endpoint not ready');await new Promise(r=>setTimeout(r,500));}
 const browser=await chromium.connectOverCDP('http://127.0.0.1:24918');const page=browser.contexts()[0].pages()[0];const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.waitForSelector('.app-shell',{timeout:60000});assert.equal(await page.evaluate(()=>globalThis.isTauri),true);await expect(page).toHaveTitle('TRACE — AI Bug Crime Scene');
+await page.waitForSelector('.app-shell',{timeout:60000});
+const language=page.getByRole('combobox',{name:'Interface language / 介面語言'});if(await language.count())await language.selectOption('en');assert.equal(await page.evaluate(()=>globalThis.isTauri),true);await expect(page).toHaveTitle('TRACE — AI Bug Crime Scene');
 if(await page.getByRole('button',{name:'Close verification lab'}).isVisible())await page.getByRole('button',{name:'Close verification lab'}).click();
 await page.locator('.saved-case').first().click();await page.locator('.source-code').waitFor({timeout:90000});
 const cases=await page.evaluate(()=>globalThis.__TAURI_INTERNALS__.invoke('list_cases',{}));const caseId=cases[0].id;

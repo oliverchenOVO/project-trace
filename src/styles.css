@@ -16,3 +16,5 @@
 @media(max-width:850px){.lab-fields,.lab-boundaries{grid-template-columns:1fr}.lab-actions{flex-direction:column;align-items:stretch}}
 
 .lab-fields textarea{min-height:72px;height:72px;resize:vertical}.lab-result .mono{overflow-wrap:anywhere}.lab-caption{margin-right:25px}
+
+.language-select{color:var(--text);background:#142737;border:1px solid #304b60;border-radius:5px;padding:8px 9px;font:12px "Segoe UI","Microsoft JhengHei",sans-serif;min-width:108px;cursor:pointer}.language-select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}html:lang(zh-Hant) body{font-family:"Segoe UI","Microsoft JhengHei",sans-serif}html:lang(zh-Hant) .node-kind,html:lang(zh-Hant) .panel-caption,html:lang(zh-Hant) .lab-caption{letter-spacing:.7px}@media(max-width:850px){.language-select{min-width:96px;padding:7px;font-size:11px}.header-actions{gap:5px}}

@@ -10,7 +10,8 @@ while(true){try{const r=await fetch('http://127.0.0.1:24918/json/version',{signa
 const browser=await chromium.connectOverCDP('http://127.0.0.1:24918',{timeout:60000});
 const page=browser.contexts()[0].pages()[0];assert(page,'TRACE WebView2 page must exist');
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.waitForSelector('.app-shell',{timeout:60000});assert.equal(await page.title(),'TRACE — AI Bug Crime Scene');
+await page.waitForSelector('.app-shell',{timeout:60000});
+const language=page.getByRole('combobox',{name:'Interface language / 介面語言'});if(await language.count())await language.selectOption('en');assert.equal(await page.title(),'TRACE — AI Bug Crime Scene');
 assert.equal(await page.evaluate(()=>globalThis.isTauri),true);
 await page.getByRole('button',{name:'Enter repository path'}).click();await page.getByRole('textbox',{name:'Repository path'}).fill(root);await page.getByRole('button',{name:'Open repository',exact:true}).click();
 await page.getByRole('dialog',{name:'Open an investigation'}).waitFor({timeout:90000});
