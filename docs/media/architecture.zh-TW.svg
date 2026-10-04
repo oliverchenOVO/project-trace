@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1060" viewBox="0 0 1280 1060" role="img" aria-labelledby="title desc">
+  <title id="title">TRACE 系統架構</title>
+  <desc id="desc">React 介面透過結構化 Tauri IPC 連接 Rust 核心。原生核心管理證據蒐集與批准後的測試，使用本機 Git、檔案及程序。本機 Ollama 為選用服務，回覆需經格式與引用檢查。SQLite 保存案件、來源與執行紀錄。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#43d7e9"/></marker>
+    <marker id="violet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#bba3ff"/></marker>
+    <style>
+      text{font-family:"Microsoft JhengHei","Noto Sans TC","PingFang TC",sans-serif;fill:#e3eff7}
+      .title{font-size:32px;font-weight:700}.heading{font-size:23px;font-weight:700}.body{font-size:18px;fill:#b8cbd9}.small{font-size:16px;fill:#90aaba}.code{font-family:Consolas,monospace;font-size:17px;fill:#77dfee}.label{font-size:17px;fill:#70e1ef}.vlabel{font-size:17px;fill:#cebaff}
+      .box{fill:#132735;stroke:#30546b;stroke-width:1.5}.module{fill:#0d1e2a;stroke:#36576c;stroke-width:1.5}.line{fill:none;stroke:#43d7e9;stroke-width:2.5;marker-end:url(#arrow)}.optional{fill:none;stroke:#bba3ff;stroke-width:2.5;stroke-dasharray:6 7;marker-end:url(#violet)}
+    </style>
+  </defs>
+  <rect width="1280" height="1060" rx="18" fill="#091722"/>
+  <text x="60" y="62" class="title">TRACE｜從可追溯證據到可重現實驗</text>
+  <text x="60" y="94" class="body">Windows 桌面應用 · 0.2.1 · 原生核心控制本機能力與結果可信範圍</text>
+
+  <rect x="60" y="122" width="1160" height="118" rx="14" class="box"/>
+  <text x="86" y="158" class="heading">互動介面</text>
+  <text x="86" y="192" class="body">案件導覽／證據圖譜／來源檢視／執行計畫審閱／繁體中文與英文</text>
+  <text x="86" y="220" class="code">React 19 · TypeScript · React Flow · Vite</text>
+  <path d="M 640 241 V 268" class="line"/>
+  <rect x="320" y="273" width="640" height="49" rx="10" fill="#173541" stroke="#43d7e9"/>
+  <text x="640" y="304" text-anchor="middle" class="label">Tauri IPC｜結構化資料與原生批准 token</text>
+  <path d="M 640 323 V 353" class="line"/>
+
+  <rect x="60" y="361" width="748" height="508" rx="14" class="box"/>
+  <text x="84" y="400" class="heading">Rust 原生核心</text>
+  <text x="84" y="430" class="small">有界執行、來源核對與狀態管理；不接收任意 shell 字串</text>
+
+  <rect x="84" y="455" width="326" height="194" rx="12" class="module"/>
+  <text x="106" y="491" class="heading">證據蒐集</text>
+  <text x="106" y="525" class="body">路徑驗證 → 堆疊解析</text>
+  <text x="106" y="555" class="body">原始碼 → 歷史／行歸屬／patch</text>
+  <text x="106" y="590" class="code">repository · stack · git</text>
+  <text x="106" y="618" class="code">investigation</text>
+
+  <rect x="434" y="455" width="350" height="194" rx="12" class="module"/>
+  <text x="456" y="491" class="heading">批准後的驗證實驗</text>
+  <text x="456" y="525" class="body">暫存 worktree／Git bisect</text>
+  <text x="456" y="555" class="body">逾時、取消、程序樹與清理</text>
+  <text x="456" y="590" class="code">verification · execution</text>
+  <text x="456" y="618" class="small">保留實際輸出與執行完整性雜湊</text>
+
+  <rect x="84" y="684" width="700" height="159" rx="12" fill="#201d34" stroke="#8e73c6"/>
+  <text x="106" y="721" class="heading">AI 上下文與回覆檢查</text>
+  <text x="106" y="755" class="body">使用者檢閱 → 常見機密遮蔽 → 限定上下文 → 本機模型</text>
+  <text x="106" y="788" class="vlabel">嚴格格式／引用 ID 驗證 → 只能建立「假設」</text>
+  <text x="106" y="821" class="small">ai｜模型不能執行工具，不能產生已驗證證據節點</text>
+
+  <text x="913" y="389" class="small">本機資源與選用服務</text>
+  <rect x="912" y="407" width="308" height="122" rx="12" class="module"/>
+  <text x="934" y="444" class="heading">Git CLI／來源檔案</text>
+  <text x="934" y="477" class="body">真實歷史、patch 與版本管理</text>
+  <text x="934" y="506" class="small">直接程式＋參數陣列</text>
+  <path d="M 808 468 H 910" class="line"/>
+
+  <rect x="912" y="561" width="308" height="122" rx="12" class="module"/>
+  <text x="934" y="598" class="heading">測試程序</text>
+  <text x="934" y="631" class="body">Node.js／已批准的執行程式</text>
+  <text x="934" y="660" class="small">Windows Job Object 管理子程序</text>
+  <path d="M 784 622 H 910" class="line"/>
+
+  <rect x="912" y="714" width="308" height="129" rx="12" fill="#201d34" stroke="#8e73c6"/>
+  <text x="934" y="751" class="heading">Ollama（選用）</text>
+  <text x="934" y="786" class="code">127.0.0.1:11434</text>
+  <text x="934" y="818" class="small">只在使用者請求後產生假設</text>
+  <path d="M 784 779 H 910" class="optional" marker-start="url(#violet)"/>
+
+  <path d="M 435 871 V 916" class="line"/>
+  <text x="455" y="900" class="label">快照、來源與執行紀錄</text>
+  <rect x="60" y="923" width="1160" height="96" rx="14" class="box"/>
+  <text x="85" y="959" class="heading">SQLite ＋本機原始產物</text>
+  <text x="85" y="991" class="body">store｜案件／圖譜／假設／測試輸出與雜湊 · 重啟保留紀錄，偵測過期來源與中斷實驗</text>
+  <text x="60" y="1047" class="small">判讀原則：行歸屬是線索；AI 是假設；bisect 確認的是所選測試與版本範圍內的回歸邊界。</text>
+</svg>

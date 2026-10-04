@@ -1,18 +1,147 @@
-# TRACE — AI Bug Crime Scene
+# TRACE — AI 錯誤鑑識現場
 
-A local-first Windows desktop lab for investigating JavaScript / TypeScript / Node.js failures in real Git repositories. Follow incident → stack frame → source → blame → commit → actual patch, with inspectable provenance at every step.
+**從錯誤堆疊追到原始碼與版本變更，再透過實際測試驗證回歸邊界。**
 
-**TRACE never invents evidence. TRACE investigates evidence.**
+TRACE 是以本機執行為核心的 Windows 桌面開發工具，針對 JavaScript、TypeScript 與 Node.js 專案，將分散在錯誤訊息、原始碼、Git 歷史與測試中的線索整理成可互動的證據圖譜。AI 可以協助提出假設，但不能取代實際證據，也不能自行執行命令。
 
-Observed input, deterministic derivation, correlation and AI hypotheses have separate labels and graph treatments. Blame establishes last modification, never causation. Pasted test output is explicitly user-supplied; it does not claim TRACE ran a test.
+目前版本：**0.2.1** · **繁體中文／英文介面** · **React + TypeScript + Tauri + Rust**
 
-## Interface language (0.2.1)
+[操作示範](#操作示範從線索走向驗證) · [系統架構](#系統架構與技術選擇) · [測試與驗證](#測試與驗證) · [本機執行](#本機執行與打包)
 
-Use the header's **繁體中文 / English** selector to change language immediately. The choice is saved locally and restored on restart; the initial default follows the browser/system language, with Traditional Chinese for Chinese locales. Headers, dialogs, navigation, evidence/status labels and Verification Lab use the chosen language. Raw source, Git patches/commit messages, supplied output and model responses remain unchanged. Technical identifiers and original diagnostic details may remain in their original language. If local preference storage is unavailable, switching still works for the current session.
+![TRACE 繁體中文介面：左側案件導覽、中央證據圖譜與右側原始碼檢視器](docs/media/evidence-graph.zh-TW.png)
 
-## Development
+*圖 1｜實際示範案件。中央將事件、堆疊框架、原始碼位置、行歸屬、提交與 patch 串成證據鏈；右側保留原始程式碼，並標示堆疊指向的行與欄。英文錯誤訊息與程式碼是原始證據，刻意不翻譯。*
 
-Prerequisites: Node 24+, installed Git, stable Rust MSVC, Visual Studio C++ Build Tools and Windows WebView2. No WSL required. Ensure Cargo is on PATH (`$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH` in PowerShell if necessary).
+## 專案動機
+
+除錯常需要在終端機、編輯器、Git 歷史與 AI 對話之間反覆切換。即使找到最後修改某行程式碼的提交，也不能直接認定它是錯誤原因；AI 提出的解釋同樣可能缺乏可重現的依據。
+
+TRACE 要處理的問題是：**如何把「看起來合理的解釋」轉成「可以追溯來源、可以實際檢驗的調查流程」？**
+
+這個專案將軟體工程、版本控制與人機互動整合到同一個桌面工具中。設計重點除了呈現結果，也包括揭露結果如何產生、哪些內容只是推論，以及驗證的適用範圍。
+
+## 核心功能
+
+| 功能 | 使用者可以做什麼 | 設計重點 |
+|---|---|---|
+| 錯誤堆疊解析 | 貼上 Node.js 錯誤與堆疊，定位實際來源行 | 支援 Windows 路徑、空白與百分比編碼的檔案 URL；無法解析時保留提示 |
+| Git 證據蒐集 | 查看行歸屬、檔案歷史、提交資訊與實際 patch | 使用真正的 Git 輸出，不以 AI 補造證據 |
+| 互動式證據圖譜 | 選取節點、聚焦路徑、展開框架或測試步驟 | 以文字、顏色與線型區分觀測、推導、相關性及 AI 假設 |
+| 證據來源檢視 | 檢查原始摘錄、命令參數、時間、提交 SHA 與雜湊 | 每項證據保留可檢視的來源資料 |
+| 驗證實驗室 | 審閱並批准測試，在不同提交上重現行為 | 使用暫存 Git worktree，保留執行輸出、狀態與清理結果 |
+| 回歸邊界定位 | 選定正常與失敗版本，執行真正的 Git bisect | 找出所選測試首次失敗的提交，不宣稱已證明所有情境的根本原因 |
+| 本機 AI 假設 | 檢閱上下文後，使用 Ollama 產生有引用的假設 | 固定連到本機服務；未知證據 ID 或不符合格式的回覆會被拒絕 |
+| 案件保存與雙語介面 | 重啟後開啟案件；自由切換繁體中文／英文 | SQLite 保存快照；語言設定另存於本機，原始證據維持原文 |
+
+### 證據與推論如何區分？
+
+| 類型 | 例子 | 能支持的結論 |
+|---|---|---|
+| 觀測 | 使用者貼上的錯誤堆疊、日誌或測試輸出 | 有這份輸入；不代表 TRACE 已執行其命令 |
+| 推導 | 從檔案與 Git 取得的原始碼、行歸屬與 patch | 來源與變更可核對；行歸屬本身不證明因果 |
+| 相關性 | 與事件相關的變更線索 | 值得調查，但尚未經實驗確認 |
+| AI 假設 | 模型提出的解釋與驗證建議 | 供人檢查的推論，不是已確認事實 |
+| 實驗結果 | 實際測試輸出與 bisect 邊界 | 在指定版本範圍內，所選測試的行為發生變化 |
+
+## 操作示範：從線索走向驗證
+
+示範資料由 `npm run fixture` 建立，包含三個真實 Git 提交：正常版本、移除空值防護的回歸版本，以及後續文件提交。測試與堆疊均來自實際執行，並非模擬輸出。
+
+### 1. 從錯誤建立調查案件
+
+開啟 `fixtures/showcase`，貼上 `evidence/stack.txt`，再建立證據圖譜。TRACE 會定位到 `src/parser.ts:3` 的 `return user!.id.trim();`。查看行歸屬與 patch，可以看到原先的 `if (!user) return null;` 被移除。
+
+這只能形成候選線索：**最後修改該行的提交，仍需要測試驗證。** 圖 1 的原始碼檢視器因此持續顯示「行歸屬不能證明因果關係」。
+
+### 2. 審閱執行計畫，再批准實驗
+
+選擇「驗證假設」，輸入執行程式 `npm.cmd`、參數 `["test"]`、工作目錄 `.` 與逾時秒數。TRACE 先顯示解析後的程式、參數、提交、暫存位置與權限；只有按下「批准並執行」才會開始測試。
+
+![驗證實驗室在執行前顯示命令、參數、版本、工作目錄與權限](docs/media/execution-approval.zh-TW.png)
+
+*圖 2｜執行前的審閱畫面。`npm.cmd` 解析為已安裝的 Node.js 與 npm CLI，參數以陣列傳遞。AI 回覆、日誌與貼上的輸出不會自動成為可執行命令。*
+
+測試在乾淨的暫存 worktree 中執行。TRACE 記錄 stdout、stderr、退出碼、時間與雜湊，並比較原工作目錄在執行前後的 HEAD、分支、狀態及非忽略檔案摘要。逾時、取消與啟動錯誤不會被當成失敗版本。
+
+### 3. 找出可重現的回歸邊界
+
+先確認目前失敗版本，再從 `evidence/manifest.json` 取得 `good` 的完整 SHA，確認正常版本通過。最後審閱並批准二分驗證。TRACE 重新測試端點、執行 Git bisect，並保留候選版本與邊界確認的實際測試紀錄。
+
+![實際 Git bisect 完成後，圖譜與檢視器顯示經測試確認的回歸邊界](docs/media/regression-boundary.zh-TW.png)
+
+*圖 3｜找到真正移除空值防護的提交 `e2a7cc531eac0fdd07eebfce3fa9132c63f8da00`。右側呈現正常／失敗版本、所選測試、驗證範圍與清理結果；底部仍保留「根本原因尚未驗證」。*
+
+結果確認的是**特定測試在指定版本範圍內的回歸邊界**。測試覆蓋是否足以解釋正式環境事件，仍需要人進一步判斷。完整流程見 [操作與示範紀錄](docs/SHOWCASE.md)。
+
+## 系統架構與技術選擇
+
+![TRACE 架構：React 介面經 Tauri IPC 連接 Rust 核心，分離證據蒐集、實驗執行、本機 AI 與持久化](docs/media/architecture.zh-TW.svg)
+
+*圖 4｜實線表示核心流程，紫色虛線表示使用者主動啟用的 AI 輔助路徑。模型內容必須通過原生端格式與引用檢查，才會成為假設節點。*
+
+| 層次 | 技術／模組 | 為什麼這樣設計 |
+|---|---|---|
+| 操作與視覺化 | React 19、TypeScript、Vite、React Flow | 將案件、圖譜與證據檢視分開，支援逐步探索與雙語呈現 |
+| 桌面橋接 | Tauri 2、結構化 IPC | 分離呈現層與本機能力；介面不提交任意 shell 字串或 Git 參數 |
+| 原生分析 | Rust：`repository`、`stack`、`git`、`investigation` | 驗證路徑、解析堆疊、讀取真實來源並建立證據節點 |
+| 實驗執行 | Rust：`verification`、`execution`；Git worktree／bisect | 管理批准、逾時、取消、清理與狀態保存；Windows Job Object 管理子程序生命週期 |
+| 本機 AI | Rust：`ai`；Ollama | 限制上下文、遮蔽常見機密並檢查回覆格式與引用，不授予模型工具執行能力 |
+| 案件持久化 | Rust：`store`；SQLite | 保存快照與實驗紀錄，重啟後核對來源變化與原始內容 |
+
+目前採用針對性讀取，沒有全儲存庫索引。分析最多解析八個框架，每次檔案歷史查詢最多十二筆近期提交；Git 鑑識優先處理第一個成功定位的來源，其餘框架保留原始碼證據與提示。詳見 [架構](docs/ARCHITECTURE.md)、[證據模型](docs/EVIDENCE_MODEL.md) 與 [驗證引擎](docs/VERIFICATION_ENGINE.md)。延伸技術文件目前保留英文。
+
+## 工程實作與研究延伸
+
+這個作品可展示的工程能力包括：
+
+- **跨語言系統整合**：TypeScript 互動介面與 Rust 本機核心，透過明確的 IPC 邊界銜接。
+- **可追溯的資料設計**：分開保存輸入、來源、推論與執行結果，讓圖譜主張能回到原始內容核對。
+- **程序與故障復原**：處理批准、逾時、取消、子程序終止、暫存目錄清理與中斷後的恢復狀態。
+- **可重現的驗證流程**：以真實 Git 儲存庫與程序建立回歸案例，透過單元、端對端及桌面操作交叉驗證。
+
+若作為研究所推甄作品，可從「AI 輔助除錯的可信度」與「可視化證據如何影響使用者判斷」延伸研究。例如，設計對照實驗，量測有無證據圖譜時的定位時間、錯誤歸因率與使用者信心，或比較不同模型引用證據的正確率。
+
+**上述量測屬於後續研究方向，目前尚未進行使用者研究，也沒有宣稱工具能提升多少除錯效率。**
+
+> **作品集摘要｜可搭配截圖使用**
+>
+> TRACE 是結合版本控制、AI 輔助推論與可重現測試的 Windows 桌面除錯工具。系統將錯誤堆疊、原始碼、Git 變更與測試紀錄呈現為互動式證據圖譜，並以 Rust 原生核心管理來源追溯、實驗批准、暫存工作樹及案件保存。本機 AI 僅提供帶有證據引用的假設；實際 Git bisect 結果則限定於指定測試與版本範圍，呈現工程實作與推論可信度之間的明確界線。
+
+## 測試與驗證
+
+| 驗證項目 | 已完成的結果 | 紀錄範圍 |
+|---|---|---|
+| Rust 核心測試 | 78 項通過，包含真實 Git、程序生命週期與驗證完整性 | 0.2.0／Phase 1.1 驗收紀錄 |
+| 前端單元測試 | 11 項通過，包含語言保存、翻譯範圍與原始證據保護 | 0.2.1 雙語介面開發 |
+| 端對端測試 | 7 個案例通過，包含實際測試、bisect、取消／逾時與雙語切換 | 0.2.1；使用相同 Rust 核心的測試傳輸介面 |
+| Windows 桌面操作 | 實際 Tauri IPC、案件保存與程序重啟已驗證；0.2.1 重啟後保留語言 | 原生 WebView2，另於瀏覽器測試之外執行 |
+| 正式打包 | TypeScript／Vite 建置與 Windows x64 NSIS 打包成功 | 0.2.1 |
+
+0.2.0 的完整 [驗收紀錄](docs/VALIDATION.md) 包含 23 個驗收項目，以及工作目錄前後比較、中斷復原與邊界確認。該文件是當時的歷史紀錄，其 88 項測試總數與 private 倉庫描述不代表目前版本或可見性；本倉庫現已公開，保留原始提交歷史。
+
+截圖中的圖譜、批准面板與回歸邊界來自 **0.2.1 正式前端搭配真實 Rust 核心**的端對端流程。測試傳輸介面僅供開發驗證，沒有隨桌面程式出貨；Git 與測試程序的結果不是預先偽造的輸出。
+
+### 已知限制
+
+- 目前聚焦 JavaScript／TypeScript／Node.js 堆疊；尚未實作 source map 還原、AST 符號對應與日誌時間序列分析。
+- 來源摘錄是蒐集當下的快照，不保證是正式環境部署版本；重新開啟案件或「檢查快照」會核對來源變化。
+- 暫存 worktree 提供版本與工作目錄隔離，**不是安全沙箱**。已批准的測試仍繼承使用者的網路與檔案權限；忽略檔案與外部檔案系統副作用不在來源摘要檢查範圍內。
+- 本機模型品質因模型而異，信心標籤與引用不能取代因果驗證。
+- Windows 安裝檔尚未簽署，尚未驗證乾淨機器上的安裝流程。
+
+詳見 [安全與執行規則](docs/SECURITY.md)。
+
+## 本機執行與打包
+
+### 環境需求
+
+Windows x64、Node.js 24 以上、Git、穩定版 Rust MSVC、Visual Studio C++ Build Tools 與 WebView2；不需要 WSL。請確認 Cargo 位於 PATH，必要時在 PowerShell 執行：
+
+```powershell
+$env:PATH = "$env:USERPROFILE\.cargo\bin;" + $env:PATH
+```
+
+### 開發與示範資料
 
 ```powershell
 npm ci
@@ -20,9 +149,15 @@ npm run fixture
 npm run tauri -- dev
 ```
 
-`npm run dev` alone is a visual browser preview; local repository commands require the desktop app. The explicit `TRACE_QA=1` development harness exists only for end-to-end validation against the same native Rust core and is never shipped in the frontend bundle.
+右上角可選繁體中文或英文。第一次預設跟隨環境語言；選擇會保存，若偏好儲存不可用，當次切換仍可運作。
 
-## Tests and Windows package
+`npm run dev` 僅提供瀏覽器畫面預覽，本機儲存庫操作需要桌面程式。案件存於應用程式資料目錄的 `cases.sqlite`，不寫入被調查的儲存庫。
+
+### 選用本機 AI
+
+先啟動 Ollama，確認已有安裝的模型。在案件中選擇「AI 上下文」，檢查遮蔽後的證據內容、輸入模型名稱，再選擇「產生假設」。TRACE 固定連到 `127.0.0.1:11434`，不保存 API 金鑰，也不會自動將儲存庫送往遠端 AI 服務。
+
+### 執行測試
 
 ```powershell
 npm test
@@ -31,27 +166,28 @@ cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --bin tra
 npx playwright install chromium
 npm run build
 npm run test:e2e
+```
+
+端對端測試在 `127.0.0.1:24917` 提供正式前端與測試用 IPC 轉接。若要一併驗證真正的 AI 推論，可先將 `TRACE_AI_MODEL` 設為已安裝的 Ollama 模型名稱。
+
+### 產生 Windows 成品
+
+```powershell
 npm run tauri -- build
 ```
 
-The Windows executable is `src-tauri/target/release/TRACE.exe`. NSIS installers are under `src-tauri/target/release/bundle/nsis/`. Build results and actual acceptance status are recorded in [validation](docs/VALIDATION.md).
+執行檔位於 `src-tauri/target/release/TRACE.exe`，NSIS 安裝檔位於 `src-tauri/target/release/bundle/nsis/`。目前 GitHub 尚未建立 Release，請依上述方式自行建置；本機產出路徑不是線上下載連結。
 
-## Verification Lab (0.2.0)
+## 文件與配圖
 
-Open a saved case and select **Verify hypothesis**. Enter a direct executable and JSON argument array, review the resolved command/revision/location/permissions, then explicitly approve execution. For the existing fixture use `npm.cmd` with arguments `["test"]`, or `node` with `["--test", "test.mjs"]`. No dependencies are installed automatically.
+| 文件 | 用途 |
+|---|---|
+| [架構說明](docs/ARCHITECTURE.md) | 模組職責、IPC、資料保存與驗證引擎 |
+| [證據模型](docs/EVIDENCE_MODEL.md) | 節點、連線、來源與可信狀態 |
+| [驗證引擎](docs/VERIFICATION_ENGINE.md) | 批准、程序管理、清理與結果適用範圍 |
+| [安全規則](docs/SECURITY.md) | 路徑、輸入、模型與程序的限制 |
+| [完整示範](docs/SHOWCASE.md) | 真實回歸案例的逐步操作 |
+| [歷史驗收紀錄](docs/VALIDATION.md) | 已執行檢查與保留的驗證資料 |
+| [配圖來源與使用說明](docs/media/README.md) | 截圖來源、架構圖與個人網頁引用方式 |
 
-Run the current bad test, select the manifest's full known-good SHA and test it, then review and approve bisect. Each revision is tested in a clean detached worktree. The result is **BISECT CONFIRMED** for the selected test predicate and range; **Root cause unverified** remains visible. Timeout/cancellation/launch errors never become BAD classification. Source HEAD, branch, status and nonignored file digest are compared before/after. Cases retain all executions and hashes across restart; interrupted worktrees have explicit cleanup/discard controls.
-
-Approved tests inherit normal user/network/filesystem permissions: checkout isolation is not a security sandbox. See [verification engine](docs/VERIFICATION_ENGINE.md) for the command boundary, Windows process trees, capture limits, cleanup and semantic scope.
-
-## Optional AI
-
-TRACE connects only to local Ollama at `127.0.0.1:11434`. Start your Ollama service with an installed model. In an investigation, choose **AI context**, inspect the exact redacted package, enter the installed model name, then generate a hypothesis. No API key is stored and nothing is automatically sent to a remote AI provider. AI cannot execute tools, manufacture deterministic nodes or supply arbitrary graph edges. Responses containing unknown evidence IDs or unexpected schema fields are rejected.
-
-Local model quality varies; cited evidence and confidence labels cannot substitute for causal verification. TRACE 0.2.0 adds explicitly approved repository tests and Git bisect in isolated worktrees. Model interpretation remains separate from experimental boundary evidence.
-
-Cases live in the application's local data folder as `cases.sqlite`, outside investigated repositories. Saved cases retain original excerpts. Reopen or choose **Check snapshot** to detect changed HEAD, worktree status or source hashes.
-
-The end-to-end harness serves the production bundle on `127.0.0.1:24917` with a test-only IPC transport adapter. Build the frontend before running it. Optional real AI E2E: set `TRACE_AI_MODEL` to an installed Ollama model. Browser tests neither invent Git output nor simulate model responses.
-
-See [architecture](docs/ARCHITECTURE.md), [evidence model](docs/EVIDENCE_MODEL.md), [security](docs/SECURITY.md), and the [exact showcase workflow](docs/SHOWCASE.md).
+本 README 與配圖可作為個人網頁的專案介紹素材。圖檔保存在倉庫內，GitHub 閱讀不依賴本機暫存路徑；架構圖另附 PNG 版本，方便放入推甄簡報或文件。
