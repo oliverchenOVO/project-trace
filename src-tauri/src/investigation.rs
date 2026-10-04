@@ -140,9 +140,10 @@ pub fn investigate(
             "--".into(),
             src.path.clone(),
         ];
-        let dirty = git::run_git(&root, &dirty_args)?;
+        let capture = git::run_git_capture(&root, &dirty_args)?;
+        let dirty = capture.stdout;
         if !dirty.is_empty() {
-            let p = git::provenance(dirty_args, &dirty, Some(&src.path), None, None);
+            let p = git::provenance(capture.command, &dirty, Some(&src.path), None, None);
             let n = case.node(
                 "working_diff",
                 Status::Derived,
@@ -161,9 +162,10 @@ pub fn investigate(
             "--".into(),
             src.path.clone(),
         ];
-        let history_raw = git::run_git(&root, &args)?;
+        let capture = git::run_git_capture(&root, &args)?;
+        let history_raw = capture.stdout;
         let history = git::parse_commits(&history_raw);
-        let hp = git::provenance(args, &history_raw, Some(&src.path), None, None);
+        let hp = git::provenance(capture.command, &history_raw, Some(&src.path), None, None);
         let hnode = case.node(
             "file_history",
             Status::Derived,
@@ -184,16 +186,17 @@ pub fn investigate(
             "--".into(),
             src.path.clone(),
         ];
-        let raw = match git::run_git(&root, &args) {
+        let capture = match git::run_git_capture(&root, &args) {
             Ok(r) => r,
             Err(e) => {
                 case.warnings.push(e);
                 continue;
             }
         };
+        let raw = capture.stdout;
         let blame = git::parse_blame(&raw)?;
         let bp = git::provenance(
-            args,
+            capture.command,
             &raw,
             Some(&src.path),
             Some(f.line),
@@ -233,12 +236,13 @@ pub fn investigate(
                 "--format=%H%x1f%an%x1f%aI%x1f%s%x00".into(),
                 blame.sha.clone(),
             ];
-            let raw = git::run_git(&root, &args)?;
+            let capture = git::run_git_capture(&root, &args)?;
+            let raw = capture.stdout;
             let commit = git::parse_commits(&raw)
                 .into_iter()
                 .next()
                 .ok_or("Cannot parse Git commit metadata")?;
-            let cp = git::provenance(args, &raw, None, None, Some(&blame.sha));
+            let cp = git::provenance(capture.command, &raw, None, None, Some(&blame.sha));
             let n = case.node(
                 "commit",
                 Status::Derived,
@@ -263,9 +267,10 @@ pub fn investigate(
             "--".into(),
             src.path.clone(),
         ];
-        let patch = git::run_git(&root, &args)?;
+        let capture = git::run_git_capture(&root, &args)?;
+        let patch = capture.stdout;
         let dp = git::provenance(
-            args,
+            capture.command,
             &patch,
             Some(&src.path),
             Some(f.line),

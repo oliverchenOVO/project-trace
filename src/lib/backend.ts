@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import type {Repository,Investigation,SavedCase,AiContext} from '../domain/evidence';
+import type {VerificationRun,VerificationRequest} from '../features/verification/types';
 let qaRoot='';
 async function call<T>(command:string,args:Record<string,unknown>={}):Promise<T> {
   if(isTauri()) return invoke<T>(command,args);
@@ -19,5 +20,11 @@ export const backend={
   listCases:()=>call<SavedCase[]>('list_cases'),
   loadCase:async(id:string)=>{const c=await call<Investigation>('load_case',{id});qaRoot=c.repository.root;return c;},
   context:(id:string)=>call<AiContext>('ai_context',{id}),
-  hypothesis:(id:string,model:string)=>call<Investigation>('generate_hypothesis',{id,model})
+  hypothesis:(id:string,model:string)=>call<Investigation>('generate_hypothesis',{id,model}),
+  prepareVerification:(request:VerificationRequest)=>call<VerificationRun>('prepare_verification',{request}),
+  approveVerification:(runId:string,token:string)=>call<VerificationRun>('approve_verification',{runId,token}),
+  verificationStatus:(id:string)=>call<{runs:VerificationRun[];caseFile:Investigation}>('verification_status',{id}),
+  cancelVerification:(runId:string)=>call<void>('cancel_verification',{runId}),
+  discardVerification:(runId:string)=>call<VerificationRun>('discard_verification',{runId}),
+  cleanupVerification:(runId:string)=>call<VerificationRun>('cleanup_verification',{runId})
 };

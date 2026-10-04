@@ -1,6 +1,6 @@
 [package]
 name = "trace-desktop"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 default-run = "TRACE"
 
@@ -23,6 +23,9 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json"] }
 tauri = { version = "2", optional = true , features = [] }
 tauri-plugin-dialog = { version = "2", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security"] }
 
 [build-dependencies]
 tauri-build = { version = "2", optional = true , features = [] }

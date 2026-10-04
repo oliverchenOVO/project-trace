@@ -1,23 +1,28 @@
 import { useState, useEffect } from 'react';
 import { FileCode2, ShieldCheck, TriangleAlert, Fingerprint } from 'lucide-react';
 import type {Evidence,Investigation} from '../../domain/evidence';
+import {VerificationEvidence} from '../verification/VerificationEvidence';
 import { kindLabels,statusLabels } from '../../domain/evidence';
 function Patch({patch}:{patch:string}) {return <pre className="patch">{patch.split('\n').map((l,i)=><div key={i} className={l.startsWith('+')?'added':l.startsWith('-')?'removed':l.startsWith('@@')?'hunk':''}>{l||' '}</div>)}</pre>;}
-export function Inspector({evidence,caseFile,onSelect}:{evidence:Evidence|null;caseFile:Investigation|null;onSelect:(id:string)=>void}) {
+export function Inspector({evidence,caseFile,onSelect,onVerify}:{evidence:Evidence|null;caseFile:Investigation|null;onSelect:(id:string)=>void;onVerify?:()=>void}) {
   const [tab,setTab]=useState('evidence');useEffect(()=>setTab('evidence'),[evidence?.id]);
   if(!evidence)return <aside className="inspector"><div className="panel-caption">CONTEXT INSPECTOR</div><div className="inspector-empty"><Fingerprint size={38} strokeWidth={1}/><h3>Inspect the original.</h3><p>Select any evidence node to view its source, Git output and provenance.</p><div className="principle">TRACE never invents evidence.<br/>TRACE investigates evidence.</div></div></aside>;
   const e=evidence,p=e.provenance;const d=e.data;
+  const verificationRun=caseFile?.nodes.filter(n=>n.kind==='regression_boundary'&&n.validity==='snapshot'&&n.data.integrityValid===true&&(n.data.run as {firstBad?:string})?.firstBad===d.sha).at(-1);
   const lines=Array.isArray(d.lines)?d.lines as string[]:null;
   const response=d.response as {supportedBy:string[];contradictedBy:string[];uncertainties:string[];verificationSteps:string[]}|undefined;
   return <aside className={`inspector ${e.epistemicStatus}`}>
     <div className="panel-caption">{kindLabels[e.kind]??e.kind}</div>
-    <div className="inspector-title"><FileCode2 size={29}/><div><h2>{e.title}</h2><p>{p.filePath??e.createdBy}</p></div></div>
+    <div className="inspector-title"><FileCode2 size={29}/><div><h2>{e.kind==='regression_boundary'&&e.validity!=='snapshot'?'INVALIDATED BOUNDARY CLAIM':e.title}</h2><p>{p.filePath??e.createdBy}</p></div></div>
     <div className="inspector-tabs"><button className={tab==='evidence'?'active':''} onClick={()=>setTab('evidence')}>Evidence</button><button className={tab==='provenance'?'active':''} onClick={()=>setTab('provenance')}>Provenance</button></div>
     <div className="inspector-body">
       <div className={`status-strip ${e.epistemicStatus}`}><ShieldCheck size={14}/>{statusLabels[e.epistemicStatus]}<span>{e.validity==='snapshot'?'SNAPSHOT':e.validity.toUpperCase()}</span></div>
       {e.validity!=='snapshot'?<div className="warning-box">This source is {e.validity}. Retained excerpts describe the captured snapshot, not current repository content.</div>:null}
       {tab==='provenance'?<><h3>ORIGINAL SOURCE</h3><dl><dt>Evidence ID</dt><dd className="mono">{e.id}</dd><dt>Source type</dt><dd>{p.sourceType}</dd><dt>Captured</dt><dd>{new Date(p.capturedAt*1000).toLocaleString()}</dd><dt>File / lines</dt><dd>{p.filePath??'—'} {p.lineStart?`· ${p.lineStart}–${p.lineEnd}`:''}</dd><dt>Commit SHA</dt><dd className="mono">{p.commitSha??'—'}</dd><dt>Artifact ID</dt><dd className="mono">{p.artifactId??'—'}</dd><dt>SHA-256</dt><dd className="mono">{p.sourceHash??'—'}</dd></dl><h3>RECORDED COMMAND ARGUMENTS</h3><pre>{p.command.length?JSON.stringify(p.command,null,2):'No command executed; input or source capture.'}</pre><h3>RAW EXCERPT</h3><pre>{p.rawExcerpt}</pre></>:
       <>
+        {['verification_run','test_execution','bisect_run','regression_boundary'].includes(e.kind)?<VerificationEvidence evidence={e} caseFile={caseFile} onSelect={onSelect}/>:null}
+        {['hypothesis','commit','candidate_signal'].includes(e.kind)&&onVerify?<button className="primary verify-inspector" onClick={onVerify}>Verify hypothesis</button>:null}
+        {verificationRun?<div className="confirmed-suspect"><h3>PRIMARY SUSPECT · BISECT CONFIRMED</h3><p>The selected test first fails at this commit.</p><button onClick={()=>onSelect(verificationRun.id)}>View verification</button><small>Verification scope: selected test predicate</small></div>:null}
         {lines?<><h3>SOURCE EXCERPT <span>UTF-8 · captured snapshot</span></h3><div className="source-code">{lines.map((line,i)=>{const num=Number(d.start)+i;return <div key={num} className={num===Number(d.line)?'crash-line':''}><span>{num}</span><code>{line||' '}</code></div>;})}</div><p className="crash-label">↳ STACK LOCATION · line {String(d.line)}, column {String(d.column??'unknown')}</p></>:null}
         {typeof d.patch==='string'?<><h3>ACTUAL GIT PATCH</h3><Patch patch={d.patch}/></>:null}
         {e.kind==='blame_result'?<><h3>LINE ATTRIBUTION</h3><dl><dt>Last changed by</dt><dd className="mono">{String(d.sha)}</dd><dt>Author</dt><dd>{String(d.author)}</dd><dt>Author timestamp</dt><dd>{String(d.timestamp)} (Unix seconds)</dd></dl><pre>{String(d.source)}</pre></>:null}

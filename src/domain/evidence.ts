@@ -10,3 +10,4 @@ export interface SavedCase {id:string;title:string;createdAt:number}
 export interface AiContext {evidence:Array<{id:string;kind:string;status:string;title:string;summary:string;excerpt:string;excerptTruncated:boolean}>;fileCount:number;lineCount:number;bytes:number;excludedCount:number;policy:string}
 export const statusLabels:Record<EpistemicStatus,string>={observed:'OBSERVED',derived:'DERIVED · SOURCE VERIFIED',correlated:'CORRELATION',hypothesis:'AI HYPOTHESIS'};
 export const kindLabels:Record<string,string>={incident:'INCIDENT',stack_frame:'STACK FRAME',source_line:'SOURCE LOCATION',blame_result:'BLAME',commit:'COMMIT',diff_hunk:'DIFF',candidate_signal:'CANDIDATE',file_history:'FILE HISTORY',test_result:'TEST OUTPUT',log_event:'LOGS',hypothesis:'AI HYPOTHESIS',working_diff:'WORKING TREE'};
+Object.assign(kindLabels,{test_execution:'TEST EXECUTION',verification_run:'VERIFICATION RUN',bisect_run:'BISECT RUN',regression_boundary:'REGRESSION BOUNDARY'});

@@ -27,7 +27,28 @@ pub fn installed_git(root: &Path, path: Option<&std::ffi::OsStr>) -> Result<Path
     }
     Err("Git executable missing from trusted absolute PATH entries. Install Git for Windows and restart TRACE. Repository-local executables are never used.".into())
 }
+pub struct GitCapture {
+    pub stdout: String,
+    pub command: Vec<String>,
+}
+fn base_arguments() -> Vec<String> {
+    [
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.pager=cat",
+        "-c",
+        "log.showSignature=false",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
+}
 pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
+    Ok(run_git_capture(root, args)?.stdout)
+}
+pub fn run_git_capture(root: &Path, args: &[String]) -> Result<GitCapture> {
     let allowed = [
         "rev-parse",
         "status",
@@ -37,32 +58,52 @@ pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
         "blame",
         "ls-files",
     ];
-    if !args
-        .first()
-        .map(|s| allowed.contains(&s.as_str()))
-        .unwrap_or(false)
-    {
+    if !args.first().is_some_and(|s| allowed.contains(&s.as_str())) {
         return Err("Git operation is not on the read-only allowlist".into());
     }
-    let git_program = installed_git(root, std::env::var_os("PATH").as_deref())?;
-    let mut command = Command::new(git_program);
+    let program = installed_git(root, std::env::var_os("PATH").as_deref())?;
+    let mut discovery = base_arguments();
+    discovery.extend(
+        ["config", "--name-only", "--get-regexp", r"^filter\."]
+            .iter()
+            .map(|s| s.to_string()),
+    );
+    let names = raw_read(root, &program, &discovery, true)?;
+    let mut actual = base_arguments();
+    let mut drivers = std::collections::BTreeSet::new();
+    for key in names.lines() {
+        if let Some(key) = key.strip_prefix("filter.") {
+            if let Some((driver, _)) = key.rsplit_once('.') {
+                if driver.len() > 200 {
+                    return Err("Invalid Git filter configuration name".into());
+                }
+                drivers.insert(driver.to_string());
+            }
+        }
+    }
+    for driver in drivers {
+        for field in ["clean", "smudge", "process"] {
+            actual.extend(["-c".into(), format!("filter.{driver}.{field}=")]);
+        }
+        actual.extend(["-c".into(), format!("filter.{driver}.required=false")]);
+    }
+    actual.extend(args.iter().cloned());
+    let stdout = raw_read(root, &program, &actual, false)?;
+    Ok(GitCapture {
+        stdout,
+        command: std::iter::once(crate::repository::display_path(&program))
+            .chain(actual)
+            .collect(),
+    })
+}
+fn raw_read(root: &Path, program: &Path, args: &[String], missing_config: bool) -> Result<String> {
+    let mut command = Command::new(program);
     command
         .current_dir(root)
-        .args([
-            "--no-optional-locks",
-            "-c",
-            "core.fsmonitor=false",
-            "-c",
-            "core.pager=cat",
-            "-c",
-            "log.showSignature=false",
-        ])
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_PAGER", "cat");
+        .stderr(Stdio::piped());
     for (key, _) in std::env::vars() {
         if key.starts_with("GIT_") {
             command.env_remove(key);
@@ -79,13 +120,13 @@ pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
     let mut child = command.spawn().map_err(|e| {
         format!("Cannot launch Git. Install Git for Windows and restart TRACE. {e}")
     })?;
-    let out = child.stdout.take().unwrap();
-    let err = child.stderr.take().unwrap();
     fn bounded<R: Read>(r: R) -> std::io::Result<Vec<u8>> {
         let mut b = vec![];
         r.take((OUTPUT_LIMIT + 1) as u64).read_to_end(&mut b)?;
         Ok(b)
     }
+    let out = child.stdout.take().unwrap();
+    let err = child.stderr.take().unwrap();
     let a = std::thread::spawn(move || bounded(out));
     let b = std::thread::spawn(move || bounded(err));
     let start = Instant::now();
@@ -116,9 +157,11 @@ pub fn run_git(root: &Path, args: &[String]) -> Result<String> {
         );
     }
     if !status.success() {
+        if missing_config && status.code() == Some(1) {
+            return Ok(String::new());
+        }
         return Err(format!(
-            "Git {} failed: {}",
-            args[0],
+            "Git inspection failed: {}",
             String::from_utf8_lossy(&stderr)
         ));
     }
@@ -214,20 +257,7 @@ pub fn provenance(
         line_start: line,
         line_end: line,
         commit_sha: sha.map(str::to_string),
-        command: [
-            "git",
-            "--no-optional-locks",
-            "-c",
-            "core.fsmonitor=false",
-            "-c",
-            "core.pager=cat",
-            "-c",
-            "log.showSignature=false",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .chain(args)
-        .collect(),
+        command: args,
         raw_excerpt: raw.into(),
         artifact_id: None,
         source_hash: Some(hash(raw.as_bytes())),
