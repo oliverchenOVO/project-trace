@@ -29,9 +29,9 @@ fn process(r: Value, service: &Arc<verification::Service>) -> Result<Value> {
         }
         "list_cases" => store::list(&db),
         "load_case" => {
-            let mut c = store::load(&db, string("id"))?;
+            let (mut c, runs) = store::load_bundle(&db, string("id"))?;
             investigation::check_stale(&mut c, &sessions)?;
-            verification::audit_case(&db, &mut c)?;
+            verification::audit_runs(&mut c, &runs)?;
             Ok(json!(c))
         }
         "ai_context" => Ok(ai::context(&store::load(&db, string("id"))?)),
@@ -46,7 +46,7 @@ fn process(r: Value, service: &Arc<verification::Service>) -> Result<Value> {
             if c.stale {
                 return Err("Repository changed while AI was running".into());
             }
-            store::save(&db, &c)?;
+            let c = store::merge_ai(&db, &c)?;
             Ok(json!(c))
         }
         "prepare_verification" => Ok(json!(service.prepare(

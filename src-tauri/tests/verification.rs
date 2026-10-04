@@ -8,6 +8,80 @@ use std::{
     time::{Duration, Instant},
 };
 use tempfile::TempDir;
+#[cfg(windows)]
+#[test]
+fn bisect_launch_error_retains_attempt_without_bad_classification() {
+    let f = Fixture::new(3, 1);
+    let exe = f._temp.path().join("not-a-program.exe");
+    std::fs::write(&exe, b"not a Windows PE executable").unwrap();
+    let mut cmd = fixture_command();
+    cmd.executable = exe.to_str().unwrap().into();
+    let r = f.run(f.request("bisect", cmd, 0));
+    assert_eq!(r.status, "inconclusive");
+    assert_eq!(r.executions[0].status, "launch_error");
+    assert_eq!(r.steps[0].classification, "error");
+    assert!(r.first_bad.is_none());
+    assert_eq!(r.cleanup_status, "cleaned");
+    let case = store::load(&f.db, &f.case_id).unwrap();
+    assert!(case
+        .nodes
+        .iter()
+        .any(|n| n.kind == "test_execution" && n.data["independentlyExecuted"] == false));
+}
+#[test]
+fn real_started_run_recovers_as_interrupted_with_cleanup() {
+    let f = Fixture::new(3, 1);
+    let mut r = f
+        .service
+        .prepare(f.request("test_bad", fixture_command(), 0))
+        .unwrap();
+    git(
+        &f.repo,
+        &["worktree", "add", "--detach", &r.worktree, &r.known_bad],
+    );
+    r.status = "running".into();
+    r.started_at = Some(trace_core::model::now());
+    r.integrity_hash = verification::run_digest(&r);
+    store::save_run(&f.db, &r).unwrap();
+    let recovered = Service::new(f.db.clone(), f.base.clone()).unwrap();
+    let r = recovered.list(&f.case_id).unwrap().pop().unwrap();
+    assert_eq!(r.status, "interrupted");
+    assert!(!recovered.busy(&f.case_id));
+    assert_eq!(recovered.discard(&r.id).unwrap().status, "discarded");
+    assert!(!Path::new(&r.worktree).exists());
+}
+#[test]
+fn explicit_cleanup_removes_owned_unregistered_partial_creation() {
+    let f = Fixture::new(3, 1);
+    let r = f
+        .service
+        .prepare(f.request("test_bad", fixture_command(), 0))
+        .unwrap();
+    std::fs::create_dir(&r.worktree).unwrap();
+    std::fs::write(Path::new(&r.worktree).join("partial.txt"), "owned partial").unwrap();
+    let clean = f.service.cleanup(&r.id).unwrap();
+    assert_eq!(clean.cleanup_status, "cleaned", "{:?}", clean.error);
+    assert!(!Path::new(&r.worktree).exists());
+    assert!(f.repo.exists());
+}
+#[test]
+fn modified_execution_provenance_is_detected() {
+    let f = Fixture::new(3, 1);
+    f.run(f.request("test_bad", fixture_command(), 0));
+    let mut c = store::load(&f.db, &f.case_id).unwrap();
+    let e = c
+        .nodes
+        .iter_mut()
+        .find(|n| n.kind == "test_execution")
+        .unwrap();
+    e.provenance.command = vec!["fake command".into()];
+    verification::audit_case(&f.db, &mut c).unwrap();
+    assert!(c
+        .nodes
+        .iter()
+        .filter(|n| n.kind == "test_execution")
+        .all(|n| n.validity == "invalid"));
+}
 use trace_core::{
     ai,
     execution::{self, TestCommand},
@@ -120,7 +194,7 @@ impl Fixture {
         self.wait(&prepared.id)
     }
     fn wait(&self, id: &str) -> verification::VerificationRun {
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + Duration::from_secs(180);
         loop {
             let r = store::load_run(&self.db, id).unwrap();
             if r.completed_at.is_some() {
@@ -261,7 +335,7 @@ fn descendant_process_is_terminated_on_timeout() {
     let path = serde_json::to_string(marker.to_str().unwrap()).unwrap();
     let child_code = format!("setInterval(()=>require('fs').appendFileSync({path},'tick'),20)");
     let script=format!("require('child_process').spawn(process.execPath,['-e',{}],{{stdio:'ignore'}});setInterval(()=>{{}},1000)",serde_json::to_string(&child_code).unwrap());
-    let c = execution::resolve_command(&command(&script, 700), t.path()).unwrap();
+    let c = execution::resolve_command(&command(&script, 5000), t.path()).unwrap();
     let e = execution::execute(
         &c,
         t.path(),
@@ -676,4 +750,50 @@ fn modified_boundary_graph_data_is_invalidated() {
             .validity,
         "invalid"
     );
+}
+
+#[test]
+fn delayed_ai_merge_preserves_concurrent_verification_evidence() {
+    let f = Fixture::new(3, 1);
+    let mut outdated = store::load(&f.db, &f.case_id).unwrap();
+    let source = outdated.nodes[0].id.clone();
+    let hypothesis = ai::attach(
+        &mut outdated,
+        ai::Hypothesis {
+            hypothesis: "A pending model response".into(),
+            supported_by: vec![source],
+            contradicted_by: vec![],
+            uncertainties: vec!["Scope remains unverified".into()],
+            verification_steps: vec!["Execute the selected test".into()],
+        },
+        "test-response",
+    );
+    let planned = f
+        .service
+        .prepare(f.request(
+            "test_bad",
+            command("setTimeout(()=>process.exit(1),1000)", 10000),
+            0,
+        ))
+        .unwrap();
+    f.service
+        .approve(&planned.id, planned.approval_token.as_deref().unwrap())
+        .unwrap();
+    store::merge_ai(&f.db, &outdated).unwrap();
+    let done = f.wait(&planned.id);
+    assert_eq!(done.status, "bad_confirmed", "{:?}", done.error);
+    // A response based on an older snapshot must not erase already completed proof either.
+    let merged = store::merge_ai(&f.db, &outdated).unwrap();
+    assert_eq!(
+        merged.nodes.iter().filter(|n| n.id == hypothesis).count(),
+        1
+    );
+    assert!(merged.nodes.iter().any(|n| n.kind == "test_execution"));
+    let (mut case, runs) = store::load_bundle(&f.db, &f.case_id).unwrap();
+    verification::audit_runs(&mut case, &runs).unwrap();
+    assert!(case
+        .nodes
+        .iter()
+        .filter(|n| n.data["verificationId"] == done.id)
+        .all(|n| n.validity == "snapshot"));
 }

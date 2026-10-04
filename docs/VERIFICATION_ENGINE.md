@@ -34,7 +34,7 @@ Windows processes are created suspended, assigned to a kill-on-close Job Object,
 
 SHA-256 covers each retained raw artifact, the structured execution and the run record. Reopening checks hashes and graph-to-run references; missing or modified test evidence invalidates the boundary display. These are integrity checks, not cryptographic authentication against an attacker able to rewrite the entire local database and recompute hashes. Cases and output artifacts are local and unencrypted; they may contain confidential test output and are not pushed to GitHub.
 
-Cases and verification records are written together in a SQLite transaction. Polling reads a consistent bundle so an incremental update cannot appear as a missing-evidence failure. Confirmation is displayed only after cleanup and source state comparison complete.
+Cases and verification records are written together under an immediate SQLite writer transaction. A model response based on an older snapshot merges only its new hypothesis nodes and edges into the latest case, preserving concurrent experiment evidence. Polling reads a consistent bundle so an incremental update cannot appear as a missing-evidence failure. Confirmation is displayed only after cleanup and source state comparison complete.
 
 ## Lifecycle, cancellation and recovery
 

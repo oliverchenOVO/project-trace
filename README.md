@@ -32,11 +32,19 @@ npm run tauri -- build
 
 The Windows executable is `src-tauri/target/release/TRACE.exe`. NSIS installers are under `src-tauri/target/release/bundle/nsis/`. Build results and actual acceptance status are recorded in [validation](docs/VALIDATION.md).
 
+## Verification Lab (0.2.0)
+
+Open a saved case and select **Verify hypothesis**. Enter a direct executable and JSON argument array, review the resolved command/revision/location/permissions, then explicitly approve execution. For the existing fixture use `npm.cmd` with arguments `["test"]`, or `node` with `["--test", "test.mjs"]`. No dependencies are installed automatically.
+
+Run the current bad test, select the manifest's full known-good SHA and test it, then review and approve bisect. Each revision is tested in a clean detached worktree. The result is **BISECT CONFIRMED** for the selected test predicate and range; **Root cause unverified** remains visible. Timeout/cancellation/launch errors never become BAD classification. Source HEAD, branch, status and nonignored file digest are compared before/after. Cases retain all executions and hashes across restart; interrupted worktrees have explicit cleanup/discard controls.
+
+Approved tests inherit normal user/network/filesystem permissions: checkout isolation is not a security sandbox. See [verification engine](docs/VERIFICATION_ENGINE.md) for the command boundary, Windows process trees, capture limits, cleanup and semantic scope.
+
 ## Optional AI
 
 TRACE connects only to local Ollama at `127.0.0.1:11434`. Start your Ollama service with an installed model. In an investigation, choose **AI context**, inspect the exact redacted package, enter the installed model name, then generate a hypothesis. No API key is stored and nothing is automatically sent to a remote AI provider. AI cannot execute tools, manufacture deterministic nodes or supply arbitrary graph edges. Responses containing unknown evidence IDs or unexpected schema fields are rejected.
 
-Local model quality varies; cited evidence and confidence labels cannot substitute for causal verification. TRACE does not implement bisect or repository test execution in this version.
+Local model quality varies; cited evidence and confidence labels cannot substitute for causal verification. TRACE 0.2.0 adds explicitly approved repository tests and Git bisect in isolated worktrees. Model interpretation remains separate from experimental boundary evidence.
 
 Cases live in the application's local data folder as `cases.sqlite`, outside investigated repositories. Saved cases retain original excerpts. Reopen or choose **Check snapshot** to detect changed HEAD, worktree status or source hashes.
 

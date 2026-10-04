@@ -11,3 +11,5 @@ export interface AiContext {evidence:Array<{id:string;kind:string;status:string;
 export const statusLabels:Record<EpistemicStatus,string>={observed:'OBSERVED',derived:'DERIVED · SOURCE VERIFIED',correlated:'CORRELATION',hypothesis:'AI HYPOTHESIS'};
 export const kindLabels:Record<string,string>={incident:'INCIDENT',stack_frame:'STACK FRAME',source_line:'SOURCE LOCATION',blame_result:'BLAME',commit:'COMMIT',diff_hunk:'DIFF',candidate_signal:'CANDIDATE',file_history:'FILE HISTORY',test_result:'TEST OUTPUT',log_event:'LOGS',hypothesis:'AI HYPOTHESIS',working_diff:'WORKING TREE'};
 Object.assign(kindLabels,{test_execution:'TEST EXECUTION',verification_run:'VERIFICATION RUN',bisect_run:'BISECT RUN',regression_boundary:'REGRESSION BOUNDARY'});
+
+export function evidenceLabel(e:Evidence):string {if(e.kind==='test_execution')return e.data.independentlyExecuted===true?'OBSERVED · ACTUALLY EXECUTED':'OBSERVED · EXECUTION ATTEMPT';if(e.kind==='regression_boundary')return 'DERIVED · TEST BOUNDARY';if(['verification_run','bisect_run'].includes(e.kind))return 'DERIVED · EXPERIMENT RECORD';return statusLabels[e.epistemicStatus];}

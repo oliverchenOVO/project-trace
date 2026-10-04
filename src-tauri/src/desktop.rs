@@ -51,9 +51,9 @@ async fn list_cases(state: tauri::State<'_, State>) -> Result<serde_json::Value>
 async fn load_case(state: tauri::State<'_, State>, id: String) -> Result<Investigation> {
     let s = state.inner().clone();
     blocking(move || {
-        let mut c = store::load(&s.db, &id)?;
+        let (mut c, runs) = store::load_bundle(&s.db, &id)?;
         investigation::check_stale(&mut c, &s.sessions)?;
-        verification::audit_case(&s.db, &mut c)?;
+        verification::audit_runs(&mut c, &runs)?;
         s.cases
             .lock()
             .map_err(|_| "Case lock failed")?
@@ -92,7 +92,7 @@ async fn generate_hypothesis(
         ai::generate(&mut c, &model)?;
         investigation::check_stale(&mut c,&s.sessions)?;
         if c.stale {return Err("Repository changed while AI was running. Refresh the case before generating a hypothesis.".into());}
-        store::save(&s.db, &c)?;
+        let c = store::merge_ai(&s.db, &c)?;
         s.cases
             .lock()
             .map_err(|_| "Case lock failed")?

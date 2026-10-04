@@ -17,4 +17,12 @@ Derived strength VERIFIED means the recorded mechanical observation is verifiabl
 
 Hypothesis confidence is LOW with blame alone. MEDIUM requires cited actual patch and cited pasted test output, with no cited contradiction. HIGH is intentionally unavailable without stronger causal verification. The inspector explains this rule; no invented percentages are used.
 
-The current implementation never emits `introduced_by` or `causes`, and never displays BISECT CONFIRMED. Supported relations include occurred_at, contains, modified_by, correlates_with, supports and contradicts.
+The implementation never emits `introduced_by` or `causes`. Only an intact native experimental run may display BISECT CONFIRMED, scoped to the selected predicate/range. Supported relations include occurred_at, contains, modified_by, correlates_with, supports and contradicts.
+
+## Experimental evidence (0.2.0)
+
+`test_execution` is observed actual process output created by the native test runner, distinct from pasted `test_result`. It retains exact requested/resolved command, arguments, cwd, full commit revision, timing, exit code, stdout/stderr artifacts and hashes, environment policy, cancellation/timeout/error status and structured integrity digest. No launch/timeout/cancellation/output-limit result has a good/bad classification.
+
+`verification_run` and `bisect_run` are native-derived lifecycle/algorithm records. Every tested step references a retained actual execution ID and matching revision/classification. A valid `regression_boundary` requires passing good and failing bad endpoints, completed Git narrowing, failing first-bad repeat and passing parent repeat. Missing or modified execution/graph/artifact evidence invalidates its display. No AI-generated JSON can supply these node kinds or deterministic graph edges.
+
+Historical verification remains scoped to the executed revision range, even after current repository state changes. A matching suspect can show BISECT CONFIRMED, while universal incident root cause remains unverified. Raw artifacts and run hashes detect local corruption; they are not signatures against a user who rewrites the entire database and recomputes hashes.

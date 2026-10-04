@@ -14,4 +14,15 @@
 
 The core collection path works with arbitrary local Git repositories. Missing files, generated files, unsupported stack frames and source-map locations produce explicit notices. Current source is an inspection snapshot, not proof of the original deployed revision.
 
-Phase 1.1: isolated worktree bisect with an explicit test command, command execution capture, source maps and static symbol mapping. Until then there is no causal verification or BISECT CONFIRMED label.
+## Phase 1.1: experimentally verify the existing case
+
+12. Reopen the saved case with the actual AI hypothesis. Select **Verify hypothesis**.
+13. Enter executable `npm.cmd`, arguments `["test"]`, working directory `.`, timeout 60 seconds. Select **Run current bad test**, inspect the exact plan and choose **Approve and run**. Expect TEST REPRODUCED at the manifest HEAD, retained executed output, source unchanged and cleanup cleaned.
+14. Paste the manifest's `good` full SHA, select **Test known good**, review and approve. Expect KNOWN GOOD PASSED.
+15. Select **Review bisect execution**. Review the same selected predicate and approved good/bad SHAs, then choose **Approve and bisect**. TRACE rechecks endpoints, uses real Git bisect and retains every test step.
+16. Expect the manifest's `regression` SHA as first bad, BISECT CONFIRMED / REGRESSION BOUNDARY VERIFIED, source unchanged and worktrees cleaned. Root cause unverified must remain visible.
+17. Close the Lab and select the boundary node. Inspect full first-bad SHA, good/bad SHAs, exact command and links to each original execution. Select the matching suspect commit to see its scoped confirmation.
+18. Close and restart TRACE. Reopen the saved case and inspect retained executions/boundary; no tests rerun automatically.
+19. Separately approve a `node` command with arguments `["-e", "setInterval(()=>{},1000)"]`. A short timeout must be INCONCLUSIVE with timeout output, not BAD. A longer run cancelled intentionally must be CANCELLED and cleaned. If the app closes during it, restart should show INTERRUPTED VERIFICATION and owned cleanup/discard controls.
+
+The fixture is the same real three-commit repository; no Git/test/bisect output is mocked. Source maps, static symbol mapping and log chronology remain deferred. Installation remains unsigned and clean-machine installation has not been verified.

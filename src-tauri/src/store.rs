@@ -1,5 +1,5 @@
 use crate::model::*;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, TransactionBehavior};
 use std::path::Path;
 
 fn connect(path: &Path) -> Result<Connection> {
@@ -40,18 +40,28 @@ pub fn runs(
     rows.map(|r| serde_json::from_str(&r.map_err(|e| e.to_string())?).map_err(|e| e.to_string()))
         .collect()
 }
-pub fn save_bundle(
-    path: &Path,
-    case: &Investigation,
-    run: &crate::verification::VerificationRun,
-) -> Result<()> {
+pub fn save_bundle(path: &Path, run: &crate::verification::VerificationRun) -> Result<()> {
     let mut c = connect(path)?;
-    let tx = c.transaction().map_err(|e| e.to_string())?;
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|e| e.to_string())?;
+    let raw: String = tx
+        .query_row(
+            "SELECT snapshot FROM cases WHERE id=?1",
+            [&run.case_id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let mut case: Investigation = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    if run.source_unchanged == Some(false) {
+        case.stale = true;
+    }
+    crate::verification::attach(&mut case, run);
     tx.execute("INSERT INTO verification_runs VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET snapshot=excluded.snapshot",params![run.id,run.case_id,serde_json::to_string(run).map_err(|e|e.to_string())?]).map_err(|e|e.to_string())?;
     tx.execute(
         "UPDATE cases SET snapshot=?1 WHERE id=?2",
         params![
-            serde_json::to_string(case).map_err(|e| e.to_string())?,
+            serde_json::to_string(&case).map_err(|e| e.to_string())?,
             case.id
         ],
     )
@@ -105,4 +115,61 @@ pub fn list(path: &Path) -> Result<serde_json::Value> {
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?,
     ))
+}
+
+/// Merge only validated AI hypotheses into the latest snapshot under the writer lock.
+/// Verification workers can advance while an Ollama response is in flight.
+pub fn merge_ai(path: &Path, incoming: &Investigation) -> Result<Investigation> {
+    let mut c = connect(path)?;
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|e| e.to_string())?;
+    let raw: String = tx
+        .query_row(
+            "SELECT snapshot FROM cases WHERE id=?1",
+            [&incoming.id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let mut case: Investigation = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    if case.stale || incoming.stale {
+        return Err("Refresh the stale case before retaining an AI hypothesis".into());
+    }
+    let new_ids: std::collections::HashSet<_> = incoming
+        .nodes
+        .iter()
+        .filter(|n| {
+            n.created_by == "ai"
+                && n.kind == "hypothesis"
+                && n.epistemic_status == Status::Hypothesis
+                && !case.nodes.iter().any(|old| old.id == n.id)
+        })
+        .map(|n| n.id.clone())
+        .collect();
+    case.nodes.extend(
+        incoming
+            .nodes
+            .iter()
+            .filter(|n| new_ids.contains(&n.id))
+            .cloned(),
+    );
+    for edge in &incoming.edges {
+        if new_ids.contains(&edge.target)
+            && edge.epistemic_status == Status::Hypothesis
+            && ["supports", "contradicts"].contains(&edge.relation.as_str())
+            && case.nodes.iter().any(|n| n.id == edge.source)
+        {
+            case.edges.push(edge.clone());
+        }
+    }
+    tx.execute(
+        "UPDATE cases SET snapshot=?1 WHERE id=?2",
+        params![
+            serde_json::to_string(&case).map_err(|e| e.to_string())?,
+            case.id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(case)
 }

@@ -2,7 +2,7 @@
 
 ## Native boundary
 
-Tauri 2 hosts React 19 / TypeScript / Vite with React Flow. Native asynchronous commands dispatch bounded blocking work to worker threads. The renderer can open a repository, analyze incident inputs, reopen a case, review AI context or request a local hypothesis. It cannot submit shell strings or Git arguments.
+Tauri 2 hosts React 19 / TypeScript / Vite with React Flow. Native asynchronous commands dispatch bounded blocking work to worker threads. The renderer can prepare/review explicitly approved isolated experiments, poll progress, cancel and retry owned cleanup. It can also open a repository, analyze incident inputs, reopen a case, review AI context or request a local hypothesis. It cannot submit shell strings or Git arguments. The verification API accepts only structured test commands and a native approval token.
 
 `repository` validates canonical roots and registers session tokens. `stack` implements the extensible `StackTraceParser` trait. `git` launches the installed CLI directly with argument arrays, bounded output and a deadline. `investigation` resolves exact lines, records source hashes and builds explicit nodes and edges. `store` owns SQLite snapshots. `ai` builds the relevant context, redacts common secrets, contacts fixed local Ollama and validates the response.
 
@@ -21,3 +21,11 @@ SQLite stores the full original snapshot, repository identity and HEAD, worktree
 ## Test adapter
 
 `trace-probe` is a JSON stdin/stdout development adapter to the same core. The production-bundle QA server injects only a test transport for Tauri IPC and requires the exact loopback origin. Vite additionally mounts an optional development bridge only when `TRACE_QA=1`. There is no such listener or injected transport in the packaged desktop app. Browser tests use actual Git output, not fabricated evidence. A separate WebView2 smoke script exercises the real desktop IPC.
+
+## Phase 1.1 verification
+
+`execution` resolves direct executables/package-manager CLIs and uses Windows kill-on-close Job Objects. `verification::Service` owns approval, native Git worktree/bisect commands, worker cancellation and persisted lifecycle. Commands from evidence/AI are never executed. Every test has retained output artifacts and structured integrity hashes. Git configuration filter discovery is bounded; configured filters are disabled for inspection and administration, and captured provenance records actual command flags.
+
+The bisect coordinator and rebuilt per-candidate test checkout are distinct owned worktrees. State transitions include a cleanup phase so final boundary labels wait for cleanup and source-state comparison. Incremental case/run writes and reads use SQLite transactions. Startup marks interrupted experiments without resuming. Audits check raw artifacts and graph-to-run references. Verification nodes remain downstream from actual native executions; model schemas cannot create them.
+
+See [verification engine](VERIFICATION_ENGINE.md) for full semantics and ownership rules.

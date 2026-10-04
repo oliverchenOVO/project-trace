@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileCode2, ShieldCheck, TriangleAlert, Fingerprint } from 'lucide-react';
 import type {Evidence,Investigation} from '../../domain/evidence';
 import {VerificationEvidence} from '../verification/VerificationEvidence';
-import { kindLabels,statusLabels } from '../../domain/evidence';
+import { kindLabels,evidenceLabel } from '../../domain/evidence';
 function Patch({patch}:{patch:string}) {return <pre className="patch">{patch.split('\n').map((l,i)=><div key={i} className={l.startsWith('+')?'added':l.startsWith('-')?'removed':l.startsWith('@@')?'hunk':''}>{l||' '}</div>)}</pre>;}
 export function Inspector({evidence,caseFile,onSelect,onVerify}:{evidence:Evidence|null;caseFile:Investigation|null;onSelect:(id:string)=>void;onVerify?:()=>void}) {
   const [tab,setTab]=useState('evidence');useEffect(()=>setTab('evidence'),[evidence?.id]);
@@ -16,7 +16,7 @@ export function Inspector({evidence,caseFile,onSelect,onVerify}:{evidence:Eviden
     <div className="inspector-title"><FileCode2 size={29}/><div><h2>{e.kind==='regression_boundary'&&e.validity!=='snapshot'?'INVALIDATED BOUNDARY CLAIM':e.title}</h2><p>{p.filePath??e.createdBy}</p></div></div>
     <div className="inspector-tabs"><button className={tab==='evidence'?'active':''} onClick={()=>setTab('evidence')}>Evidence</button><button className={tab==='provenance'?'active':''} onClick={()=>setTab('provenance')}>Provenance</button></div>
     <div className="inspector-body">
-      <div className={`status-strip ${e.epistemicStatus}`}><ShieldCheck size={14}/>{statusLabels[e.epistemicStatus]}<span>{e.validity==='snapshot'?'SNAPSHOT':e.validity.toUpperCase()}</span></div>
+      <div className={`status-strip ${e.epistemicStatus}`}><ShieldCheck size={14}/>{evidenceLabel(e)}<span>{e.validity==='snapshot'?'SNAPSHOT':e.validity.toUpperCase()}</span></div>
       {e.validity!=='snapshot'?<div className="warning-box">This source is {e.validity}. Retained excerpts describe the captured snapshot, not current repository content.</div>:null}
       {tab==='provenance'?<><h3>ORIGINAL SOURCE</h3><dl><dt>Evidence ID</dt><dd className="mono">{e.id}</dd><dt>Source type</dt><dd>{p.sourceType}</dd><dt>Captured</dt><dd>{new Date(p.capturedAt*1000).toLocaleString()}</dd><dt>File / lines</dt><dd>{p.filePath??'—'} {p.lineStart?`· ${p.lineStart}–${p.lineEnd}`:''}</dd><dt>Commit SHA</dt><dd className="mono">{p.commitSha??'—'}</dd><dt>Artifact ID</dt><dd className="mono">{p.artifactId??'—'}</dd><dt>SHA-256</dt><dd className="mono">{p.sourceHash??'—'}</dd></dl><h3>RECORDED COMMAND ARGUMENTS</h3><pre>{p.command.length?JSON.stringify(p.command,null,2):'No command executed; input or source capture.'}</pre><h3>RAW EXCERPT</h3><pre>{p.rawExcerpt}</pre></>:
       <>

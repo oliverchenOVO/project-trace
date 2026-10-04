@@ -16,7 +16,7 @@ assert((await page.locator('.crash-line').textContent()).includes('user!.id.trim
 assert(await page.locator('.evidence-card.hypothesis').count()>0,'AI hypothesis must survive a process restart');
 await page.getByRole('button',{name:'Focus path',exact:true}).click();
 await page.getByRole('button',{name:'Focus path',exact:true}).click();
-await page.getByRole('button',{name:'Expand frames',exact:true}).click();
+await page.getByRole('button',{name:/Expand frames|Expand steps/}).click();
 assert(await page.locator('.react-flow__node').count()>9);
 await page.getByRole('button',{name:'Primary path',exact:true}).click();
 await page.locator('.evidence-card.hypothesis').first().click();

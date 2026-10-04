@@ -102,6 +102,7 @@ pub fn source_state(root: &Path) -> Result<SourceState> {
     names.dedup();
     for name in names {
         let path = root.join(name);
+        digest.update((name.len() as u64).to_le_bytes());
         digest.update(name.as_bytes());
         match std::fs::symlink_metadata(&path) {
             Ok(m) if m.file_type().is_symlink() => {
@@ -113,6 +114,7 @@ pub fn source_state(root: &Path) -> Result<SourceState> {
                 );
             }
             Ok(m) if m.is_file() => {
+                digest.update(m.len().to_le_bytes());
                 let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
                 let mut b = [0u8; 65536];
                 loop {
@@ -164,8 +166,13 @@ impl Service {
         });
         for mut r in store::runs(&s.db, None)? {
             if ["running", "cancelling", "cleaning_up"].contains(&r.status.as_str()) {
+                let integrity_error = validate_run(&r).err();
                 r.status = "interrupted".into();
                 r.error=Some("INTERRUPTED VERIFICATION. Execution will not resume automatically. Inspect retained steps and clean up the owned worktree.".into());
+                if let Some(err) = integrity_error {
+                    r.status = "integrity_error".into();
+                    r.error = Some(err);
+                }
                 r.approval_token = None;
                 r.completed_at = Some(now());
                 s.persist(&mut r)?;
@@ -340,10 +347,7 @@ impl Service {
             snapshot.status = "cleaning_up".into();
             snapshot.integrity_hash = run_digest(&snapshot);
         }
-        let mut c = store::load(&self.db, &r.case_id)?;
-        if snapshot.source_unchanged==Some(false){c.stale=true;}
-        attach(&mut c, &snapshot);
-        store::save_bundle(&self.db, &c, &snapshot)
+        store::save_bundle(&self.db, &snapshot)
     }
     fn git_op(
         &self,
@@ -364,7 +368,8 @@ impl Service {
             "core.fsmonitor=false".into(),
             "-c".into(),
             "core.pager=cat".into(),
-            "-c".into(),"core.longpaths=true".into(),
+            "-c".into(),
+            "core.longpaths=true".into(),
             "-c".into(),
             format!("core.hooksPath={}", repository::display_path(&hooks)),
             "-c".into(),
@@ -937,7 +942,7 @@ pub fn attach(case: &mut Investigation, r: &VerificationRun) {
     let raw = serde_json::to_string(r).unwrap();
     let mut p = Provenance::input("verification_engine", &raw, &r.id);
     p.commit_sha = Some(r.known_bad.clone());
-    let valid = validate_run(r).is_ok();
+    let valid = validate_run(r).is_ok() && r.status != "integrity_error";
     let rid = format!("verification-{}", r.id);
     let root = case.node(
         "verification_run",
@@ -974,7 +979,7 @@ pub fn attach(case: &mut Investigation, r: &VerificationRun) {
             .chain(e.command.args.clone())
             .collect();
         ep.commit_sha = Some(e.revision.clone());
-        let node=case.node("test_execution",Status::Observed,&format!("{} · {}",e.status.to_uppercase(),&e.revision[..12.min(e.revision.len())]),"Executed by TRACE in an isolated worktree","test_runner",ep.clone(),json!({"verificationId":r.id,"execution":e,"role":r.steps.get(i).map(|s|s.role.as_str()),"integrityValid":valid,"independentlyExecuted":true}));
+        let node=case.node("test_execution",Status::Observed,&format!("{} · {}",e.status.to_uppercase(),&e.revision[..12.min(e.revision.len())]),if e.status=="launch_error"{"Attempted by TRACE; test process could not launch"}else{"Executed by TRACE in an isolated worktree"},"test_runner",ep.clone(),json!({"verificationId":r.id,"execution":e,"role":r.steps.get(i).map(|s|s.role.as_str()),"integrityValid":valid,"independentlyExecuted":e.status!="launch_error"}));
         case.nodes.last_mut().unwrap().id = e.id.clone();
         if !valid {
             case.nodes.last_mut().unwrap().validity = "invalid".into();
@@ -1045,6 +1050,12 @@ pub fn audit_runs(case: &mut Investigation, runs: &[VerificationRun]) -> Result<
             }) {
                 Some(n)
                     if n.data["execution"] == serde_json::to_value(e).unwrap()
+                        && n.epistemic_status == Status::Observed
+                        && n.provenance.command
+                            == std::iter::once(e.command.executable.clone())
+                                .chain(e.command.args.clone())
+                                .collect::<Vec<_>>()
+                        && n.provenance.commit_sha.as_deref() == Some(e.revision.as_str())
                         && n.provenance.source_hash.as_deref()
                             == Some(hash(n.provenance.raw_excerpt.as_bytes()).as_str()) => {}
                 _ => error = Some(

@@ -271,7 +271,7 @@ pub fn execute(
     let mut e = Execution {
         id: eid,
         command: command.clone(),
-        cwd: display_path(worktree),
+        cwd: display_path(&worktree.join(&command.requested.working_directory)),
         revision: revision.into(),
         started_at: now(),
         finished_at: now(),
