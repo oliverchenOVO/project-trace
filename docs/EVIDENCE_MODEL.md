@@ -4,7 +4,7 @@ Every node has an ID, kind, epistemic status, title, summary, creator, evidence 
 
 | State | Meaning | Treatment |
 |---|---|---|
-| observed | Original stack/log/test input supplied by the user | Solid thick border, OBSERVED |
+| observed | Original supplied input or actual native test output; provenance distinguishes them | Solid thick border, OBSERVED |
 | derived | Reproducible parser, filesystem or Git result | Thin solid border, DERIVED / SOURCE VERIFIED |
 | correlated | Explicit heuristic connecting candidates | Amber dashed border and connection, CORRELATION |
 | hypothesis | Model interpretation requiring verification | Violet dotted border and connection, AI HYPOTHESIS |
@@ -21,7 +21,7 @@ The implementation never emits `introduced_by` or `causes`. Only an intact nativ
 
 ## Experimental evidence (0.2.0)
 
-`test_execution` is observed actual process output created by the native test runner, distinct from pasted `test_result`. It retains exact requested/resolved command, arguments, cwd, full commit revision, timing, exit code, stdout/stderr artifacts and hashes, environment policy, cancellation/timeout/error status and structured integrity digest. No launch/timeout/cancellation/output-limit result has a good/bad classification.
+`test_execution` is observed actual process output created by the native test runner, distinct from pasted `test_result`. It retains exact requested/resolved command, arguments, cwd, full commit revision, timing, exit code, stdout/stderr artifacts and hashes, environment policy, cancellation/timeout/error status and structured integrity digest. No launch-failure/timeout/cancellation/output-limit result has a good/bad classification.
 
 `verification_run` and `bisect_run` are native-derived lifecycle/algorithm records. Every tested step references a retained actual execution ID and matching revision/classification. A valid `regression_boundary` requires passing good and failing bad endpoints, completed Git narrowing, failing first-bad repeat and passing parent repeat. Missing or modified execution/graph/artifact evidence invalidates its display. No AI-generated JSON can supply these node kinds or deterministic graph edges.
 
