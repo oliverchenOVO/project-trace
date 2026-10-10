@@ -8,10 +8,14 @@
 | `execution-approval.zh-TW.png` | 執行前的審閱與批准畫面；包含真正解析後的 npm CLI 與參數 |
 | `regression-boundary.zh-TW.png` | 實際測試與 Git bisect 完成後的回歸邊界及結果適用範圍 |
 | `report-export.zh-TW.png` | 0.3.0 原生 Tauri／WebView2 的報告預覽；已實際下載 HTML 與 Markdown，2026-10-11 擷取 |
+| `case-management.zh-TW.png` | 0.4.0 正式桌面程式完全重啟後的案件管理；名稱、標籤與封存狀態實際還原 |
+| `report-diagram.zh-TW.png` | 0.4.0 端對端流程實際下載的離線 HTML；包含 SVG 關係圖、E 編號引用與可讀清單 |
 | `architecture.zh-TW.svg` | 根據現有 React、Tauri 與 Rust 模組繪製的架構圖；可直接編輯與縮放 |
 | `architecture.zh-TW.png` | 相同架構圖的 PNG 版本，適合簡報與文件 |
 
 ## 來源與判讀
+
+0.4.0 的兩張圖片於 2026-10-11 擷取：案件管理直接來自 Tauri／WebView2 正式成品，另有完全關閉再啟動及取消封存的驗證；關係圖來自同一 Rust 核心的端對端流程實際匯出檔，離線開啟後擷取，所有引用均已檢查可跳到對應證據。圖檔沒有修改原始證據文字。
 
 報告預覽圖於 2026-10-11 直接連接正式桌面成品的 WebView2 擷取，核對內嵌前端與建置版本一致；未使用瀏覽器測試 IPC。HTML／Markdown 下載均實際取得檔案。以下日期與測試傳輸介面說明適用於前三張 0.2.1 截圖。
 

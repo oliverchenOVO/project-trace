@@ -48,12 +48,18 @@ async fn list_cases(state: tauri::State<'_, State>) -> Result<serde_json::Value>
     blocking(move || store::list(&s.db)).await
 }
 #[tauri::command]
+async fn update_case_metadata(state: tauri::State<'_, State>, id: String, name: String, tags: Vec<String>, archived: bool) -> Result<()> {
+    let s = state.inner().clone();
+    blocking(move || store::update_metadata(&s.db, &id, &name, tags, archived)).await
+}
+#[tauri::command]
 async fn load_case(state: tauri::State<'_, State>, id: String) -> Result<Investigation> {
     let s = state.inner().clone();
     blocking(move || {
         let (mut c, runs) = store::load_bundle(&s.db, &id)?;
         investigation::check_stale(&mut c, &s.sessions)?;
         verification::audit_runs(&mut c, &runs)?;
+        store::touch(&s.db, &id)?;
         s.cases
             .lock()
             .map_err(|_| "Case lock failed")?
@@ -182,6 +188,7 @@ pub fn run() {
             open_repository,
             analyze,
             list_cases,
+            update_case_metadata,
             load_case,
             ai_context,
             generate_hypothesis,

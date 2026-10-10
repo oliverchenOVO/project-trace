@@ -28,10 +28,16 @@ fn process(r: Value, service: &Arc<verification::Service>) -> Result<Value> {
             Ok(json!(c))
         }
         "list_cases" => store::list(&db),
+        "update_case_metadata" => {
+            let tags = serde_json::from_value(args["tags"].clone()).map_err(|e|e.to_string())?;
+            store::update_metadata(&db,string("id"),string("name"),tags,args["archived"].as_bool().ok_or("Archived flag required")?)?;
+            Ok(json!(null))
+        }
         "load_case" => {
             let (mut c, runs) = store::load_bundle(&db, string("id"))?;
             investigation::check_stale(&mut c, &sessions)?;
             verification::audit_runs(&mut c, &runs)?;
+            store::touch(&db,string("id"))?;
             Ok(json!(c))
         }
         "ai_context" => Ok(ai::context(&store::load(&db, string("id"))?)),

@@ -16,6 +16,8 @@ Only native parsers, filesystem reads and actual Git output produce observed/der
 
 ## Persistence
 
+A separate `case_metadata` table stores display names, normalized tags, archive state and last-opened timestamps. Existing databases migrate additively on connection; these fields do not alter evidence snapshots or verification runs. The case list includes archived records and is not capped at fifty; presentation filters do not delete data.
+
 SQLite stores the full original snapshot, repository identity and HEAD, worktree status, raw inputs, parsed frames, nodes, edges, provenance, hypotheses and source hashes. Reopening compares live metadata and hashes; missing source is invalid, changed source is stale. It retains original excerpts. A repository missing entirely yields an actionable open error; the database snapshot remains intact.
 
 ## Test adapter
@@ -29,3 +31,7 @@ SQLite stores the full original snapshot, repository identity and HEAD, worktree
 The bisect coordinator and rebuilt per-candidate test checkout are distinct owned worktrees. State transitions include a cleanup phase so final boundary labels wait for cleanup and source-state comparison. Incremental case/run writes and reads use SQLite transactions. Startup marks interrupted experiments without resuming. Audits check raw artifacts and graph-to-run references. Verification nodes remain downstream from actual native executions; model schemas cannot create them.
 
 See [verification engine](VERIFICATION_ENGINE.md) for full semantics and ownership rules.
+
+## Reading and reporting (0.4.0)
+
+Graph search covers all retained evidence before presentation compaction and supports exact kind filtering. Selection changes only React Flow presentation state; highlighted paths follow ancestors plus immediate descendants. Reports assign case-local E references while retaining original IDs. Offline HTML uses escaped tables, local fragment links and an inline SVG schematic (up to 60 nodes); Markdown keeps the full reference mapping. Neither exporting nor case management initiates experiments or AI calls.

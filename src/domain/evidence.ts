@@ -6,7 +6,7 @@ export interface Commit {sha:string;author:string;timestamp:string;subject:strin
 export interface Repository {token:string;root:string;head:string|null;branch:string;dirty:boolean;status:string;recentCommits:Commit[]}
 export interface StackFrame {index:number;raw:string;functionName:string|null;filePath:string;line:number;column:number|null;language:string;resolved:boolean}
 export interface Investigation {id:string;title:string;createdAt:number;repository:Repository;stack:string;logs:string;tests:string;frames:StackFrame[];nodes:Evidence[];edges:EvidenceEdge[];warnings:string[];sourceHashes:Record<string,string>;stale:boolean}
-export interface SavedCase {id:string;title:string;createdAt:number}
+export interface SavedCase {id:string;title:string;createdAt:number;originalTitle?:string;tags?:string[];archived?:boolean;lastOpened?:number}
 export interface AiContext {evidence:Array<{id:string;kind:string;status:string;title:string;summary:string;excerpt:string;excerptTruncated:boolean}>;fileCount:number;lineCount:number;bytes:number;excludedCount:number;policy:string}
 export const statusLabels:Record<EpistemicStatus,string>={observed:'OBSERVED',derived:'DERIVED · SOURCE VERIFIED',correlated:'CORRELATION',hypothesis:'AI HYPOTHESIS'};
 export const kindLabels:Record<string,string>={incident:'INCIDENT',stack_frame:'STACK FRAME',source_line:'SOURCE LOCATION',blame_result:'BLAME',commit:'COMMIT',diff_hunk:'DIFF',candidate_signal:'CANDIDATE',file_history:'FILE HISTORY',test_result:'TEST OUTPUT',log_event:'LOGS',hypothesis:'AI HYPOTHESIS',working_diff:'WORKING TREE'};

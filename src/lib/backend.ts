@@ -18,6 +18,7 @@ export const backend={
   async openRepository(path:string) {const repo=await call<Repository>('open_repository',{path});qaRoot=repo.root;return repo;},
   analyze:(token:string,stack:string,logs:string,tests:string)=>call<Investigation>('analyze',{token,stack,logs,tests}),
   listCases:()=>call<SavedCase[]>('list_cases'),
+  updateCaseMetadata:(id:string,name:string,tags:string[],archived:boolean)=>call<void>('update_case_metadata',{id,name,tags,archived}),
   loadCase:async(id:string)=>{const c=await call<Investigation>('load_case',{id});qaRoot=c.repository.root;return c;},
   context:(id:string)=>call<AiContext>('ai_context',{id}),
   hypothesis:(id:string,model:string)=>call<Investigation>('generate_hypothesis',{id,model}),
