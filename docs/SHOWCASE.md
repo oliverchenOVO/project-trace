@@ -1,28 +1,117 @@
-# Showcase: a real missing-user regression
+# TRACE 中文示範指南
 
-1. Run `npm run fixture` once. The developer script creates `fixtures/showcase` with three real Git commits. Inspect `evidence/manifest.json` for exact safe, regression and HEAD SHAs. It actually runs the safe tests (exit 0), regression tests (exit 1) and crashing Node script.
-2. Launch `TRACE.exe`, then choose **Open repository…** and select `fixtures/showcase`. **Path…** also accepts the absolute Windows path, including spaces and Unicode.
-3. Paste `fixtures/showcase/evidence/stack.txt` into **Stack trace**. This is actual stderr from `node crash.mjs`, including encoded Windows file URLs.
-4. Switch to **Test output · optional** and paste `evidence/test-output.txt`. TRACE records it as user-supplied output; it does not claim to have run the test itself.
-5. Choose **Build evidence graph**. Select the source node for `src/parser.ts:3`. The highlighted line is `return user!.id.trim();` and the exact column comes from the stack.
-6. Select **Last changed line**, then the commit. Compare its full SHA to `regression` in the manifest. The later documentation-only commit must not be blamed for the crash line.
-7. Select **Actual commit patch**. Git's real patch contains the removed `if (!user) return null;` and changed return expression. Select **Provenance** to inspect the recorded argument array and original output.
-8. Select **Attached test output** to read the real failure, including the test command, cwd and exit code captured by the developer script.
-9. Use **AI context** to inspect the exact redacted excerpts. Enter an installed local Ollama model, for example `qwen2.5:1.5b` if available on your machine. Choose **Generate hypothesis**. Unknown citations or schema violations produce an explicit error, not a graph node.
-10. Select the violet dotted hypothesis. Check supporting evidence links, uncertainty, verification steps and LOW/MEDIUM confidence explanation. The status bar must still say **Root cause unverified**.
-11. Close and reopen TRACE, then select the saved case. The snapshot should persist. Use **Check snapshot** after changing a fixture source file to inspect stale evidence warnings; restore fixture changes manually or regenerate a fresh fixture folder.
+這份指南適合現場展示與自行重現。以 **0.2.1 繁體中文介面**為準；既有驗證截圖拍攝於 2026-10-04。以下是可重現步驟，不表示文件更新當日重新執行了所有測試。
 
-The core collection path works with arbitrary local Git repositories. Missing files, generated files, unsupported stack frames and source-map locations produce explicit notices. Current source is an inspection snapshot, not proof of the original deployed revision.
+## 示範要回答什麼？
 
-## Phase 1.1: experimentally verify the existing case
+`parseUser(null)` 為什麼崩潰？哪一次提交讓指定測試開始失敗？TRACE 如何區分來源證據、AI 假設與測試結果？
 
-12. Reopen the saved case with the actual AI hypothesis. Select **Verify hypothesis**.
-13. Enter executable `npm.cmd`, arguments `["test"]`, working directory `.`, timeout 60 seconds. Select **Run current bad test**, inspect the exact plan and choose **Approve and run**. Expect TEST REPRODUCED at the manifest HEAD, retained executed output, source unchanged and cleanup cleaned.
-14. Paste the manifest's `good` full SHA, select **Test known good**, review and approve. Expect KNOWN GOOD PASSED.
-15. Select **Review bisect execution**. Review the same selected predicate and approved good/bad SHAs, then choose **Approve and bisect**. TRACE rechecks endpoints, uses real Git bisect and retains every test step.
-16. Expect the manifest's `regression` SHA as first bad, BISECT CONFIRMED / REGRESSION BOUNDARY VERIFIED, source unchanged and worktrees cleaned. Root cause unverified must remain visible.
-17. Close the Lab and select the boundary node. Inspect full first-bad SHA, good/bad SHAs, exact command and links to each original execution. Select the matching suspect commit to see its scoped confirmation.
-18. Close and restart TRACE. Reopen the saved case and inspect retained executions/boundary; no tests rerun automatically.
-19. Separately approve a `node` command with arguments `["-e", "setInterval(()=>{},1000)"]`. A short timeout must be INCONCLUSIVE with timeout output, not BAD. A longer run cancelled intentionally must be CANCELLED and cleaned. If the app closes during it, restart should show INTERRUPTED VERIFICATION and owned cleanup/discard controls.
+示範儲存庫包含三個真實提交：
 
-The fixture is the same real three-commit repository; no Git/test/bisect output is mocked. Source maps, static symbol mapping and log chronology remain deferred. Installation remains unsigned and clean-machine installation has not been verified.
+| 版本 | 行為 | 展示目的 |
+|---|---|---|
+| 正常版本 `good` | 空值回傳 null，有效使用者回傳 ID | 提供可通過的基準版本 |
+| 回歸版本 `regression` | 移除空值防護，直接存取 `user!.id.trim()` | 引入空值例外與測試失敗 |
+| 目前版本 `head` | 只新增文件，仍保有回歸 | 展示「最新提交」不一定是引入回歸的提交 |
+
+每台電腦建立案例時的 SHA 可能不同，請使用本機 `evidence/manifest.json`，不要直接複製 README 截圖的 SHA。
+
+## 一、準備環境
+
+先依 [README 環境需求](../README.md#環境需求) 安裝 Node.js、Git、Rust 與 Windows 桌面建置工具。在專案根目錄執行：
+
+```powershell
+npm ci
+npm run fixture
+npm run tauri -- dev
+```
+
+`npm run fixture` 會產生 `fixtures/showcase`，實際執行正常版本測試、失敗版本測試與崩潰程式，並保存原始輸出。若該目錄已是 Git 儲存庫，產生器會保留它，不會覆寫目前內容。
+
+若需要另一份全新案例，可指定新的空目錄：
+
+```powershell
+node scripts/create-fixture.mjs fixtures/showcase-demo
+```
+
+使用另一份案例時，下列所有路徑與 SHA 都以新案例為準。案例不需要安裝第三方測試套件；`npm test` 呼叫 Node.js 內建測試執行器。
+
+## 二、建立證據圖譜
+
+1. 在右上角選擇「繁體中文」。選擇「開啟儲存庫…」，指向 `fixtures/showcase`；也可使用「路徑…」輸入絕對路徑。
+2. 將 `evidence/stack.txt` 的完整內容貼到「堆疊追蹤」。這份內容是 `node crash.mjs` 的實際 stderr。
+3. 切換「測試輸出 · 選填」，貼上 `evidence/test-output.txt`。
+4. 選擇「建立證據圖譜」，選取 `src/parser.ts:3` 原始碼節點。確認醒目行為 `return user!.id.trim();`。
+5. 選取「最後變更行」與相連提交，核對完整 SHA 是否等於 manifest 的 `regression`，而不是後續文件提交。
+6. 選取「實際提交 patch」，確認空值防護被移除。切換「證據來源」，查看命令參數、原始摘錄與來源雜湊。
+7. 選取「附加測試輸出」，確認它標示為使用者提供的證據，沒有宣稱是 TRACE 剛執行的測試。
+
+![證據圖譜與實際來源行](media/evidence-graph.zh-TW.png)
+
+**展示說明：**「目前看到的是可以核對來源的線索。行歸屬指出最後修改者，但還不能直接證明它造成事件。」
+
+## 三、選用本機 AI
+
+AI 不是完成測試與 bisect 的必要條件；未安裝 Ollama 時可直接前往下一節。
+
+1. 啟動本機 Ollama，確認已有安裝的模型。
+2. 選擇「AI 上下文」，檢查即將提供的遮蔽後證據包。
+3. 輸入已安裝模型的名稱，例如在機器上已有該模型時使用 `qwen2.5:1.5b`，再選擇「產生假設」。
+4. 選取紫色假設節點，查看支持／矛盾證據、未確定事項與驗證步驟。來源 ID 必須來自提供的上下文。
+
+模型品質與執行時間會依設備而異。未知引用或格式不符會顯示錯誤；成功顯示假設也不代表解釋已被證明。底部仍應保留「根本原因尚未驗證」。
+
+## 四、執行真正的驗證實驗
+
+選擇「驗證假設」，填入：
+
+| 欄位 | 示範值 |
+|---|---|
+| 測試執行程式 | `npm.cmd` |
+| 測試參數 | `["test"]` |
+| 測試工作目錄 | `.` |
+| 測試逾時 | `60` 秒 |
+| 已知正常版本 | manifest 的 `good` 完整 SHA |
+
+1. 選擇「測試目前失敗版本」。先審閱實際程式、JSON 參數、版本、工作目錄、逾時與權限，再按「批准並執行」。預期結果是「已重現測試失敗」。
+2. 填入 `good`，選擇「測試已知正常版本」，審閱並批准。預期正常版本通過。
+3. 選擇「檢閱二分執行計畫」，確認端點及命令，再按「批准並二分查找」。TRACE 重新核對端點，使用真正的 Git bisect 並保留每一步測試。
+4. 等待實驗與清理完成。預期首次失敗 SHA 等於 manifest 的 `regression`，目前儲存庫為「未變更」，工作樹為「已清理」。
+5. 關閉實驗室，選取「回歸邊界已驗證」節點。查看完整 SHA、版本範圍、測試判定條件與各次執行的連結；展開步驟後可選取個別測試，檢查 stdout、stderr 與退出碼。
+
+![實驗批准面板](media/execution-approval.zh-TW.png)
+
+批准的命令仍有一般帳號的網路與檔案權限。暫存 worktree 是版本隔離，不是安全沙箱；展示時使用自有且已理解的示範程式。
+
+![實際回歸邊界與驗證範圍](media/regression-boundary.zh-TW.png)
+
+**展示說明：**「這次結果確認了所選測試在哪一個提交開始失敗。它沒有把單一測試的結果直接擴大成所有正式環境事件的根本原因。」
+
+## 五、展示保存與語言切換
+
+1. 切回英文，確認標籤更新，但程式碼、提交 SHA、patch 與原始輸出不變。
+2. 切回繁體中文，完全關閉再啟動 TRACE。
+3. 開啟已儲存案件，確認語言選擇、來源快照與驗證紀錄仍在；程式不會自動重跑測試。
+4. 若另外修改了來源檔案，使用「檢查快照」查看過期提示。歷史摘錄會保留，不能當成當前來源。完成後自行還原實驗變更，或建立另一份全新案例。
+
+## 六、選用的異常狀態展示
+
+這部分適合技術審閱，作品簡介可省略。
+
+以 `node` 與參數 `["-e", "setInterval(()=>{},1000)"]` 建立一個不自行結束的程序，審閱後批准：
+
+- 短逾時應得到「無法判定」與逾時資訊，不應標成正常或失敗版本。
+- 長逾時的實驗可主動取消，預期顯示取消結果並清理工作樹。
+- 實驗尚在執行時終止應用程式，重新啟動後應顯示中斷與工作樹路徑。檢查紀錄，再使用清理／捨棄控制；不會自動續跑。
+
+## 常見問題
+
+| 現象 | 檢查方式 |
+|---|---|
+| 找不到來源檔案 | 使用本機產生的 `stack.txt`；從其他電腦複製的絕對路徑可能不同 |
+| 正常 SHA 無效 | 使用完整 SHA，並確認來自目前開啟的同一份案例 |
+| 沒有 AI 假設 | 確認 Ollama 與模型已安裝；AI 可略過，不影響核心流程 |
+| `npm.cmd` 無法解析 | 確認 Node.js 安裝與 PATH，或使用 `node`、`["--test","test.mjs"]`，然後重新審閱計畫 |
+| 舊案例內容與預期不符 | 產生器會保留既有 Git 儲存庫；指定新的空目錄建立另一份案例 |
+
+來源與能力邊界見 [架構](ARCHITECTURE.md)、[驗證引擎](VERIFICATION_ENGINE.md) 與 [歷史驗收紀錄](VALIDATION.md)。Windows 安裝檔尚未簽署，乾淨機器安裝尚未驗證；source map、靜態符號對應與日誌時間序列仍未實作。
